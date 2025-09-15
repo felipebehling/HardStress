@@ -145,16 +145,40 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
 }
 
 #ifndef TESTING_BUILD
+
+typedef struct {
+    GtkTextBuffer *buffer;
+    GtkTextView *view;
+    char *message;
+} GuiLogData;
+
+static gboolean do_gui_log_update(gpointer user_data) {
+    GuiLogData *data = (GuiLogData *)user_data;
+
+    GtkTextIter end;
+    gtk_text_buffer_get_end_iter(data->buffer, &end);
+    gtk_text_buffer_insert(data->buffer, &end, data->message, -1);
+
+    GtkTextMark *mark = gtk_text_buffer_create_mark(data->buffer, NULL, &end, FALSE);
+    gtk_text_view_scroll_to_mark(data->view, mark, 0.0, TRUE, 0.0, 1.0);
+    gtk_text_buffer_delete_mark(data->buffer, mark);
+
+    g_free(data->message);
+    g_free(data);
+
+    return G_SOURCE_REMOVE;
+}
+
 /**
- * @brief Appends a formatted, timestamped message to the GUI log.
+ * @brief Appends a formatted, timestamped message to the GUI log in a thread-safe way.
  */
 void gui_log(AppContext *app, const char *fmt, ...){
-    va_list ap; va_start(ap, fmt);
+    va_list ap;
+    va_start(ap, fmt);
     char *s = g_strdup_vprintf(fmt, ap);
     va_end(ap);
     if (!s) return;
     
-    // Add timestamp to the log message
     time_t now = time(NULL);
     struct tm t;
     #ifdef _WIN32
@@ -163,19 +187,15 @@ void gui_log(AppContext *app, const char *fmt, ...){
         localtime_r(&now, &t);
     #endif
     char timestamp[32];
-    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S]", &t);
+    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", &t);
     
-    GtkTextIter end;
-    gtk_text_buffer_get_end_iter(app->log_buffer, &end);
-    gtk_text_buffer_insert(app->log_buffer, &end, timestamp, -1);
-    gtk_text_buffer_insert(app->log_buffer, &end, " ", -1);
-    gtk_text_buffer_insert(app->log_buffer, &end, s, -1);
+    GuiLogData *data = g_new(GuiLogData, 1);
+    data->buffer = app->log_buffer;
+    data->view = GTK_TEXT_VIEW(app->log_view);
+    data->message = g_strconcat(timestamp, s, NULL);
     g_free(s);
 
-    // Auto-scroll to the end
-    GtkTextMark *mark = gtk_text_buffer_create_mark(app->log_buffer, NULL, &end, FALSE);
-    gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(app->log_view), mark, 0.0, TRUE, 0.0, 1.0);
-    gtk_text_buffer_delete_mark(app->log_buffer, mark);
+    g_idle_add(do_gui_log_update, data);
 }
 #endif
 
