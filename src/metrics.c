@@ -72,10 +72,14 @@ void cpu_sampler_thread_func(void *arg){
         g_mutex_unlock(&app->history_mutex);
 
         // Wait for the defined sample interval
+#ifdef _WIN32
+        Sleep(CPU_SAMPLE_INTERVAL_MS);
+#else
         struct timespec r;
         r.tv_sec = CPU_SAMPLE_INTERVAL_MS / 1000;
         r.tv_nsec = (CPU_SAMPLE_INTERVAL_MS % 1000) * 1000000;
         nanosleep(&r,NULL);
+#endif
     }
 
 #ifdef _WIN32

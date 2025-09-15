@@ -152,6 +152,14 @@ typedef struct {
     char *message;
 } GuiLogData;
 
+// GDestroyNotify function to free the data structure
+static void gui_log_data_free(gpointer user_data) {
+    GuiLogData *data = (GuiLogData *)user_data;
+    g_free(data->message);
+    g_free(data);
+}
+
+// Function to be called in the main thread to update the GUI
 static gboolean do_gui_log_update(gpointer user_data) {
     GuiLogData *data = (GuiLogData *)user_data;
 
@@ -163,9 +171,7 @@ static gboolean do_gui_log_update(gpointer user_data) {
     gtk_text_view_scroll_to_mark(data->view, mark, 0.0, TRUE, 0.0, 1.0);
     gtk_text_buffer_delete_mark(data->buffer, mark);
 
-    g_free(data->message);
-    g_free(data);
-
+    // The source will be removed automatically, and the data will be freed by gui_log_data_free
     return G_SOURCE_REMOVE;
 }
 
@@ -195,7 +201,8 @@ void gui_log(AppContext *app, const char *fmt, ...){
     data->message = g_strconcat(timestamp, s, NULL);
     g_free(s);
 
-    g_idle_add(do_gui_log_update, data);
+    // Use g_idle_add_full to schedule the update and the cleanup
+    g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, do_gui_log_update, data, gui_log_data_free);
 }
 #endif
 
