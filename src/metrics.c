@@ -158,12 +158,6 @@ static void sample_cpu_linux(AppContext *app) {
         return;
     }
 
-    if (app->prev_cpu_samples[0].user == 0 && app->prev_cpu_samples[0].idle == 0) {
-        memcpy(app->prev_cpu_samples, current_samples, n * sizeof(cpu_sample_t));
-        free(current_samples);
-        return;
-    }
-
     g_mutex_lock(&app->cpu_mutex);
     for (int i = 0; i < n; i++) {
         app->cpu_usage[i] = compute_usage(&app->prev_cpu_samples[i], &current_samples[i]);
