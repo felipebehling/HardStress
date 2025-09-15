@@ -22,18 +22,32 @@ void controller_thread_func(void *arg){
 
     if(app->csv_realtime_en) {
         char fname[256];
-        snprintf(fname, sizeof(fname), "hardstress_log_%.0f.csv", app->start_time);
-        app->csv_log_file = fopen(fname, "w");
+        snprintf(fname, sizeof(fname), "hardstress_log.csv");
+
+        // Check if file exists to decide whether to write the header
+        long fsize = -1;
+        FILE *fcheck = fopen(fname, "r");
+        if (fcheck) {
+            fseek(fcheck, 0, SEEK_END);
+            fsize = ftell(fcheck);
+            fclose(fcheck);
+        }
+
+        app->csv_log_file = fopen(fname, "a");
         if(app->csv_log_file) {
-            gui_log(app, "[Logger] Log CSV em tempo real ativo: %s\n", fname);
+            if (fsize <= 0) { // If file is new or empty, write header
+                 log_csv_header(app);
+            }
+            gui_log(app, "[Logger] Real-time CSV logging active: %s\n", fname);
         } else {
-            gui_log(app, "[Logger] ERRO: Nao foi possivel abrir o arquivo de log CSV.\n");
-            app->csv_realtime_en = 0; // Desativa se falhar
+            gui_log(app, "[Logger] ERROR: Could not open CSV log file.\n");
+            app->csv_realtime_en = 0; // Disable if failed
         }
     }
 
     app->cpu_count = detect_cpu_count();
     app->cpu_usage = calloc(app->cpu_count, sizeof(double));
+    app->cpu_clock_mhz = calloc(app->cpu_count, sizeof(double));
 #ifndef _WIN32
     app->prev_cpu_samples = calloc(app->cpu_count, sizeof(cpu_sample_t));
 #endif
@@ -93,6 +107,7 @@ void controller_thread_func(void *arg){
     free(app->workers); app->workers = NULL;
     free(app->worker_threads); app->worker_threads = NULL;
     free(app->cpu_usage); app->cpu_usage = NULL;
+    free(app->cpu_clock_mhz); app->cpu_clock_mhz = NULL;
 #ifndef _WIN32
     free(app->prev_cpu_samples); app->prev_cpu_samples = NULL;
 #endif

@@ -14,7 +14,6 @@ static void sample_cpu_linux(AppContext *app);
 static void sample_temp_linux(AppContext *app);
 #endif
 
-static void log_csv_header(AppContext *app);
 static void log_csv_sample(AppContext *app);
 
 /* --- Sampler Thread Implementation --- */
@@ -32,17 +31,20 @@ void cpu_sampler_thread_func(void *arg){
 
     // If real-time CSV logging is enabled, write the header row.
     if(app->csv_realtime_en) {
-        log_csv_header(app);
+        // log_csv_header is now called from core.c to handle appending correctly
     }
 
+    int samples_since_last_save = 0;
     while (atomic_load(&app->running)){
         // Select the correct sampling functions based on the OS
 #ifndef _WIN32
         sample_cpu_linux(app);
         sample_temp_linux(app);
+        sample_clockspeed_linux(app);
 #else
         sample_cpu_windows(app);
         sample_temp_windows(app);
+        sample_clockspeed_windows(app);
 #endif
         // Request the UI thread to redraw the graph widgets
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->cpu_drawing);
@@ -50,7 +52,11 @@ void cpu_sampler_thread_func(void *arg){
         
         // If enabled, write the current sample to the CSV log.
         if (app->csv_realtime_en) {
-            log_csv_sample(app);
+            samples_since_last_save++;
+            if (samples_since_last_save >= app->save_interval_seconds) {
+                log_csv_sample(app);
+                samples_since_last_save = 0;
+            }
         }
 
         // Advance the circular buffer for the performance history graph
@@ -194,6 +200,29 @@ static void sample_temp_linux(AppContext *app){
     g_mutex_lock(&app->temp_mutex); app->temp_celsius = found; g_mutex_unlock(&app->temp_mutex);
 }
 
+/**
+ * @brief Samples CPU clock speed on Linux from /proc/cpuinfo.
+ */
+void sample_clockspeed_linux(AppContext *app) {
+    FILE *f = fopen("/proc/cpuinfo", "r");
+    if (!f) return;
+
+    char line[256];
+    int core_count = 0;
+    g_mutex_lock(&app->clock_mutex);
+    while (fgets(line, sizeof(line), f) && core_count < app->cpu_count) {
+        if (strncmp(line, "cpu MHz", 7) == 0) {
+            char *val_str = strchr(line, ':');
+            if (val_str) {
+                app->cpu_clock_mhz[core_count] = strtod(val_str + 1, NULL);
+                core_count++;
+            }
+        }
+    }
+    g_mutex_unlock(&app->clock_mutex);
+    fclose(f);
+}
+
 #else /* --- WINDOWS IMPLEMENTATION --- */
 
 /**
@@ -322,6 +351,15 @@ static void sample_temp_windows(AppContext *app) {
     g_mutex_lock(&app->temp_mutex); app->temp_celsius = temp; g_mutex_unlock(&app->temp_mutex);
 }
 
+void sample_clockspeed_windows(AppContext *app) {
+    // Placeholder for Windows clock speed implementation
+    g_mutex_lock(&app->clock_mutex);
+    for (int i = 0; i < app->cpu_count; i++) {
+        app->cpu_clock_mhz[i] = 0.0; // Not implemented
+    }
+    g_mutex_unlock(&app->clock_mutex);
+}
+
 #endif
 
 /* --- CSV LOGGING --- */
@@ -329,10 +367,11 @@ static void sample_temp_windows(AppContext *app) {
 /**
  * @brief Writes the header row to the real-time CSV log file.
  */
-static void log_csv_header(AppContext *app) {
+void log_csv_header(AppContext *app) {
     if (!app->csv_log_file) return;
     fprintf(app->csv_log_file, "timestamp");
     for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",cpu%d_usage", c);
+    for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",cpu%d_clock_mhz", c);
     for (int t = 0; t < app->threads; t++) fprintf(app->csv_log_file, ",thread%d_iters_total", t);
     fprintf(app->csv_log_file, ",temp_celsius\n");
     fflush(app->csv_log_file);
@@ -353,6 +392,11 @@ static void log_csv_sample(AppContext *app) {
     g_mutex_lock(&app->cpu_mutex);
     for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",%.6f", app->cpu_usage[c]);
     g_mutex_unlock(&app->cpu_mutex);
+
+    // Log clock speed for each core
+    g_mutex_lock(&app->clock_mutex);
+    for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",%.3f", app->cpu_clock_mhz[c]);
+    g_mutex_unlock(&app->clock_mutex);
 
     // The history buffer stores the total iteration count. We need to log the
     // value from the *previous* sample period, as the current one has just

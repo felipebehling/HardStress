@@ -47,6 +47,7 @@ int main(int argc, char **argv){
 
     // Initialize mutexes
     g_mutex_init(&app->cpu_mutex);
+    g_mutex_init(&app->clock_mutex);
     g_mutex_init(&app->history_mutex);
     g_mutex_init(&app->temp_mutex);
     

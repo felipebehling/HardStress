@@ -108,6 +108,7 @@ struct AppContext {
     int kernel_stream_en;           ///< Boolean flag to enable the memory streaming kernel.
     int kernel_ptr_en;              ///< Boolean flag to enable the pointer-chasing kernel.
     int csv_realtime_en;            ///< Boolean flag to enable real-time CSV logging.
+    int save_interval_seconds;      ///< Interval for saving metrics to CSV.
 
     /* --- Runtime State --- */
     atomic_int running;             ///< Flag indicating if a stress test is currently active.
@@ -125,7 +126,9 @@ struct AppContext {
     /* --- CPU Usage Monitoring --- */
     int cpu_count;                  ///< Number of logical CPU cores detected.
     double *cpu_usage;              ///< Array to store the utilization of each CPU core (0.0 to 1.0).
+    double *cpu_clock_mhz;          ///< Array of CPU clock speed values (one per core)
     GMutex cpu_mutex;               ///< Mutex to protect access to the `cpu_usage` array.
+    GMutex clock_mutex;             ///< Mutex for clock speed data
 #ifdef _WIN32
     /* --- Windows-specific handles for performance monitoring --- */
     PDH_HQUERY pdh_query;           ///< A query handle for the Performance Data Helper (PDH) library.

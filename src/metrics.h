@@ -35,9 +35,14 @@ void cpu_sampler_thread_func(void *arg);
  */
 int detect_cpu_count(void);
 
+void log_csv_header(AppContext *app);
+
 #ifndef _WIN32
 int read_proc_stat(cpu_sample_t *out, int maxcpu, const char *path);
 double compute_usage(const cpu_sample_t *a, const cpu_sample_t *b);
+void sample_clockspeed_linux(AppContext *app);
+#else
+void sample_clockspeed_windows(AppContext *app);
 #endif
 
 #endif // METRICS_H
