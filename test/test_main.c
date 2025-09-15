@@ -130,13 +130,14 @@ void test_csv_logging_bug() {
         app.thread_history[i] = calloc(app.history_len, sizeof(unsigned));
     }
 
-    // Previous position (0) should have some data
+    // Previous position (0) has some data.
     app.thread_history[0][0] = 100;
     app.thread_history[1][0] = 200;
 
-    // Current position (1) is zeroed out by the sampler
-    app.thread_history[0][1] = 0;
-    app.thread_history[1][1] = 0;
+    // The current, just-completed position (1) should have the real data.
+    // The bug was that the logger was reading from position 0 instead of 1.
+    app.thread_history[0][1] = 555;
+    app.thread_history[1][1] = 666;
 
     // Dummy CPU usage data
     app.cpu_usage = calloc(app.cpu_count, sizeof(double));
@@ -164,12 +165,13 @@ void test_csv_logging_bug() {
     fclose(f);
     remove(tmp_filename);
 
-    // With the fix, the implementation now logs the value at the previous position.
-    // We expect to see ",100,200," for the thread iterations.
+    // With the fix, the implementation now logs the value at the current `history_pos`.
+    // In this test setup, `history_pos` is 1, and the values are 555 and 666.
+    // We expect to see ",555,666," for the thread iterations.
     printf("  - Logged line: %s\n", line);
-    assert(strstr(line, ",100,200,") != NULL);
+    assert(strstr(line, ",555,666,") != NULL);
 
-    printf("  - PASSED: Fix confirmed, logged iteration counts are correct.\n");
+    printf("  - PASSED: Logged iteration counts are correct.\n");
 
     // Free allocated memory
     for (int i = 0; i < app.threads; i++) {
