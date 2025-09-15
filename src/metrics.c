@@ -359,7 +359,11 @@ static void log_csv_sample(AppContext *app) {
     // been zeroed out by the sampler thread.
     g_mutex_lock(&app->history_mutex);
     if (app->thread_history) {
-        int log_pos = (app->history_pos - 1 + app->history_len) % app->history_len;
+        // At the time of logging, app->history_pos holds the index for the
+        // sample period that just completed. The workers have already written
+        // their final iteration counts to this slice. The sampler thread
+        // advances and zeroes out the *next* slice only after this function returns.
+        int log_pos = app->history_pos;
         for (int t = 0; t < app->threads; t++) {
             fprintf(app->csv_log_file, ",%u", app->thread_history[t][log_pos]);
         }
