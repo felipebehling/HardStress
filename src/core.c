@@ -136,7 +136,8 @@ static void worker_main(void *arg){
     float *B = (float*)(w->buf + w->buf_bytes/3);
     float *C = (float*)(w->buf + 2*(w->buf_bytes/3));
     uint64_t *I64 = (uint64_t*)w->buf;
-    uint64_t seed = 0x12340000 + (uint64_t)w->tid;
+    uint64_t seed = (uint64_t)now_sec() ^ ((uint64_t)w->tid << 32);
+    seed = splitmix64(&seed);
 
     // Initialize buffer for FPU kernel
     if (app->kernel_fpu_en && w->buf) {
