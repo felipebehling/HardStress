@@ -30,7 +30,6 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static void on_btn_start_clicked(GtkButton *b, gpointer ud);
 static void on_btn_stop_clicked(GtkButton *b, gpointer ud);
-static void on_btn_export_metrics_clicked(GtkButton *b, gpointer ud);
 static void on_btn_defaults_clicked(GtkButton *b, gpointer ud);
 static void on_btn_clear_log_clicked(GtkButton *b, gpointer ud);
 static void check_memory_warning(AppContext *app);
@@ -39,13 +38,13 @@ static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud);
 static void on_window_destroy(GtkWidget *w, gpointer ud);
 static gboolean ui_tick(gpointer ud);
 static void set_controls_sensitive(AppContext *app, gboolean state);
-static void export_metrics_dialog(AppContext *app);
 static void export_to_csv_metrics(const char *filename, AppContext *app);
 static void export_to_txt_metrics(const char *filename, AppContext *app);
 static gboolean gui_update_started(gpointer ud);
 static void apply_css_theme(GtkWidget *window);
 static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double h, double r);
 static void draw_grid_background(cairo_t *cr, int width, int height, int spacing);
+static void save_metrics_if_checked(AppContext *app);
 
 gboolean gui_update_stopped(gpointer ud);
 
@@ -201,12 +200,22 @@ static gboolean gui_update_started(gpointer ud){
  *
  * Called via `g_idle_add` to safely update GTK widgets from the main thread.
  */
+static void save_metrics_if_checked(AppContext *app) {
+    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_save_metrics))) {
+        char filename[64];
+        snprintf(filename, sizeof(filename), "HardStress_Metrics_%.0f.csv", (double)time(NULL));
+        export_to_csv_metrics(filename, app);
+        gui_log(app, "[GUI] Metrics automatically saved to %s\n", filename);
+    }
+}
+
 gboolean gui_update_stopped(gpointer ud){
     AppContext *app = (AppContext*)ud;
     set_controls_sensitive(app, TRUE);
     gtk_widget_set_sensitive(app->btn_stop, FALSE);
     gtk_label_set_text(GTK_LABEL(app->status_label), "⏹ Stopped");
     gui_log(app, "[GUI] Test stopped.\n");
+    save_metrics_if_checked(app);
     return G_SOURCE_REMOVE;
 }
 
@@ -288,15 +297,6 @@ static void on_btn_stop_clicked(GtkButton *b, gpointer ud){
     atomic_store(&app->running, 0);
     gtk_widget_set_sensitive(app->btn_stop, FALSE);
     gui_log(app, "[GUI] Stop requested by user.\n");
-}
-
-/**
- * @brief Callback for the "Save Metrics" button. Opens the export dialog.
- */
-static void on_btn_export_metrics_clicked(GtkButton *b, gpointer ud){
-    (void)b;
-    AppContext *app = (AppContext*)ud;
-    export_metrics_dialog(app);
 }
 
 /**
@@ -552,6 +552,8 @@ GtkWidget* create_main_window(AppContext *app) {
     // Control Buttons
     GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     app->btn_start = gtk_button_new_with_label("▶ Start");
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(app->btn_start, &allocation);
     gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_start), "styled-button");
     app->btn_stop = gtk_button_new_with_label("⏹ Stop");
     gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_stop), "styled-button");
@@ -561,10 +563,8 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(button_box), app->btn_stop, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(sidebar), button_box, FALSE, FALSE, 0);
 
-    app->btn_save_metrics = gtk_button_new_with_label("Save Metrics");
-    gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_save_metrics), "styled-button");
-    gtk_box_pack_start(GTK_BOX(sidebar), app->btn_save_metrics, FALSE, FALSE, 0);
-
+    app->check_save_metrics = gtk_check_button_new_with_label("Save Metrics on Completion");
+    gtk_box_pack_start(GTK_BOX(sidebar), app->check_save_metrics, FALSE, FALSE, 0);
     app->btn_defaults = gtk_button_new_with_label("Restore Defaults");
     gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_defaults), "styled-button");
     gtk_box_pack_start(GTK_BOX(sidebar), app->btn_defaults, FALSE, FALSE, 0);
@@ -619,7 +619,6 @@ GtkWidget* create_main_window(AppContext *app) {
     g_signal_connect(win, "delete-event", G_CALLBACK(on_window_delete), app);
     g_signal_connect(app->btn_start, "clicked", G_CALLBACK(on_btn_start_clicked), app);
     g_signal_connect(app->btn_stop, "clicked", G_CALLBACK(on_btn_stop_clicked), app);
-    g_signal_connect(app->btn_save_metrics, "clicked", G_CALLBACK(on_btn_export_metrics_clicked), app);
     g_signal_connect(app->btn_defaults, "clicked", G_CALLBACK(on_btn_defaults_clicked), app);
     g_signal_connect(app->btn_clear_log, "clicked", G_CALLBACK(on_btn_clear_log_clicked), app);
     g_signal_connect(app->cpu_drawing, "draw", G_CALLBACK(on_draw_cpu), app);
@@ -650,48 +649,6 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
     gtk_widget_set_sensitive(app->check_ptr, state);
     gtk_widget_set_sensitive(app->check_csv_realtime, state);
     gtk_widget_set_sensitive(app->btn_start, state);
-}
-
-/**
- * @brief Displays a file chooser dialog for exporting metrics.
- *
- * Allows the user to save the collected performance data to a file in
- * CSV or TXT format.
- */
-static void export_metrics_dialog(AppContext *app){
-    GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Metrics",
-        GTK_WINDOW(app->win),
-        GTK_FILE_CHOOSER_ACTION_SAVE,
-        "_Cancel", GTK_RESPONSE_CANCEL,
-        "_Save", GTK_RESPONSE_ACCEPT, NULL);
-
-    GtkFileFilter *filter_csv = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter_csv, "CSV File (*.csv)");
-    gtk_file_filter_add_pattern(filter_csv, "*.csv");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter_csv);
-
-    GtkFileFilter *filter_txt = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter_txt, "Text File (*.txt)");
-    gtk_file_filter_add_pattern(filter_txt, "*.txt");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter_txt);
-
-    char default_name[64];
-    snprintf(default_name, sizeof(default_name), "HardStress_Metrics_%.0f.csv", (double)time(NULL));
-    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), default_name);
-
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT){
-        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-
-        if (g_str_has_suffix(filename, ".csv")) {
-            export_to_csv_metrics(filename, app);
-        } else if (g_str_has_suffix(filename, ".txt")) {
-            export_to_txt_metrics(filename, app);
-        }
-
-        gui_log(app, "[GUI] Metrics exported to %s\n", filename);
-        g_free(filename);
-    }
-    gtk_widget_destroy(dialog);
 }
 
 /**

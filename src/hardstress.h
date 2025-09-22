@@ -152,6 +152,7 @@ struct AppContext {
     GtkWidget *check_pin;           ///< Checkbox for enabling CPU pinning.
     GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes for stress kernels.
     GtkWidget *check_csv_realtime;  ///< Checkbox for real-time CSV logging.
+    GtkWidget *check_save_metrics;
     GtkWidget *btn_start, *btn_stop, *btn_save_metrics, *btn_defaults, *btn_clear_log; ///< Control buttons.
     GtkTextBuffer *log_buffer;      ///< Text buffer for the event log panel.
     GtkWidget *log_view;            ///< Text view widget for the event log.
