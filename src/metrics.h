@@ -23,7 +23,7 @@
  *
  * @param arg A pointer to the global `AppContext` structure.
  */
-void cpu_sampler_thread_func(void *arg);
+thread_return_t cpu_sampler_thread_func(void *arg);
 
 /**
  * @brief Detects the number of logical CPU cores on the system.

@@ -26,6 +26,6 @@
  *
  * @param arg A pointer to the global `AppContext` structure.
  */
-void controller_thread_func(void *arg);
+thread_return_t controller_thread_func(void *arg);
 
 #endif // CORE_H
