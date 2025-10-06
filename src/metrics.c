@@ -19,7 +19,7 @@ static void log_csv_sample(AppContext *app);
 
 /* --- Sampler Thread Implementation --- */
 
-void cpu_sampler_thread_func(void *arg){
+thread_return_t cpu_sampler_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
     
 #ifdef _WIN32
@@ -75,6 +75,7 @@ void cpu_sampler_thread_func(void *arg){
     pdh_close_query(app);
     wmi_deinit(app);
 #endif
+    return 0;
 }
 
 /* --- Data Collection Implementations --- */

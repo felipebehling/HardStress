@@ -51,9 +51,11 @@ extern const color_t COLOR_BG, COLOR_FG, COLOR_WARN, COLOR_ERR, COLOR_TEXT, COLO
 /* --- THREAD ABSTRACTION --- */
 #ifdef _WIN32
 typedef HANDLE thread_handle_t;         ///< Type definition for a thread handle (Windows).
+typedef unsigned __stdcall thread_return_t; ///< Return type for thread entry points (Windows).
 typedef unsigned (__stdcall *thread_func_t)(void *); ///< Type definition for a thread function (Windows).
 #else
 typedef pthread_t thread_handle_t;      ///< Type definition for a thread handle (POSIX).
+typedef void * thread_return_t;         ///< Return type for thread entry points (POSIX).
 typedef void *(*thread_func_t)(void *); ///< Type definition for a thread function (POSIX).
 #endif
 

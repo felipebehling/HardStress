@@ -273,7 +273,7 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
 
     set_controls_sensitive(app, FALSE);
     g_idle_add(gui_update_started, app);
-    thread_create(&app->controller_thread, (thread_func_t)controller_thread_func, app);
+    thread_create(&app->controller_thread, controller_thread_func, app);
 }
 
 /**
