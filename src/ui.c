@@ -6,6 +6,7 @@
 #include <math.h>
 #include <time.h>
 #include <errno.h>
+#include <stdarg.h>
 
 /* --- Dark Theme Color Definitions --- */
 typedef struct {
@@ -48,6 +49,17 @@ static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double 
 static void draw_grid_background(cairo_t *cr, int width, int height, int spacing);
 
 gboolean gui_update_stopped(gpointer ud);
+
+#ifndef TESTING_BUILD
+typedef struct {
+    AppContext *app;
+    char *message;
+    time_t when;
+} GuiLogMessage;
+
+static gboolean gui_log_dispatch(gpointer data);
+static void gui_log_message_free(gpointer data);
+#endif
 
 /* --- Implementations --- */
 
@@ -152,33 +164,70 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
  * @brief Appends a formatted, timestamped message to the GUI log.
  */
 void gui_log(AppContext *app, const char *fmt, ...){
-    va_list ap; va_start(ap, fmt);
-    char *s = g_strdup_vprintf(fmt, ap);
+    if (!app || !fmt) return;
+
+    va_list ap;
+    va_start(ap, fmt);
+    char *formatted = g_strdup_vprintf(fmt, ap);
     va_end(ap);
-    if (!s) return;
-    
-    // Add timestamp to the log message
-    time_t now = time(NULL);
+
+    if (!formatted) return;
+
+    GuiLogMessage *msg = g_new(GuiLogMessage, 1);
+    if (!msg) {
+        g_free(formatted);
+        return;
+    }
+
+    msg->app = app;
+    msg->message = formatted;
+    msg->when = time(NULL);
+
+    if (g_idle_add_full(G_PRIORITY_DEFAULT, gui_log_dispatch, msg, gui_log_message_free) == 0) {
+        gui_log_message_free(msg);
+        g_warning("Failed to enqueue log message for GUI thread.");
+    }
+}
+#endif
+
+#ifndef TESTING_BUILD
+static gboolean gui_log_dispatch(gpointer data) {
+    GuiLogMessage *msg = data;
+    AppContext *app = msg->app;
+
+    if (!app || !app->log_buffer || !app->log_view) {
+        return G_SOURCE_REMOVE;
+    }
+
     struct tm t;
-    #ifdef _WIN32
-        localtime_s(&t, &now);
-    #else
-        localtime_r(&now, &t);
-    #endif
+#ifdef _WIN32
+    localtime_s(&t, &msg->when);
+#else
+    localtime_r(&msg->when, &t);
+#endif
     char timestamp[32];
     strftime(timestamp, sizeof(timestamp), "[%H:%M:%S]", &t);
-    
+
     GtkTextIter end;
     gtk_text_buffer_get_end_iter(app->log_buffer, &end);
     gtk_text_buffer_insert(app->log_buffer, &end, timestamp, -1);
     gtk_text_buffer_insert(app->log_buffer, &end, " ", -1);
-    gtk_text_buffer_insert(app->log_buffer, &end, s, -1);
-    g_free(s);
+    gtk_text_buffer_insert(app->log_buffer, &end, msg->message, -1);
 
-    // Auto-scroll to the end
     GtkTextMark *mark = gtk_text_buffer_create_mark(app->log_buffer, NULL, &end, FALSE);
     gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(app->log_view), mark, 0.0, TRUE, 0.0, 1.0);
     gtk_text_buffer_delete_mark(app->log_buffer, mark);
+
+    return G_SOURCE_REMOVE;
+}
+
+static void gui_log_message_free(gpointer data) {
+    GuiLogMessage *msg = data;
+    if (!msg) {
+        return;
+    }
+    g_free(msg->message);
+    g_free(msg);
 }
 #endif
 
