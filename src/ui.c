@@ -1,7 +1,6 @@
 /* ui.c - Modernized HardStress interface with a KDE Plasma-inspired style */
 #include "ui.h"
 #include "core.h"
-#include "metrics.h"
 #include "utils.h"
 #include <math.h>
 #include <time.h>
@@ -31,16 +30,12 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static void on_btn_start_clicked(GtkButton *b, gpointer ud);
 static void on_btn_stop_clicked(GtkButton *b, gpointer ud);
-static void on_btn_export_metrics_clicked(GtkButton *b, gpointer ud);
 static void on_btn_defaults_clicked(GtkButton *b, gpointer ud);
 static void on_btn_clear_log_clicked(GtkButton *b, gpointer ud);
 static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud);
 static void on_window_destroy(GtkWidget *w, gpointer ud);
 static gboolean ui_tick(gpointer ud);
 static void set_controls_sensitive(AppContext *app, gboolean state);
-static void export_metrics_dialog(AppContext *app);
-static void export_to_csv_metrics(const char *filename, AppContext *app);
-static void export_to_txt_metrics(const char *filename, AppContext *app);
 static gboolean gui_update_started(gpointer ud);
 static void apply_css_theme(GtkWidget *window);
 static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double h, double r);
@@ -331,15 +326,6 @@ static void on_btn_stop_clicked(GtkButton *b, gpointer ud){
 }
 
 /**
- * @brief Callback for the "Save Metrics" button. Opens the export dialog.
- */
-static void on_btn_export_metrics_clicked(GtkButton *b, gpointer ud){
-    (void)b;
-    AppContext *app = (AppContext*)ud;
-    export_metrics_dialog(app);
-}
-
-/**
  * @brief Callback for the "Restore Defaults" button.
  *
  * Resets all configuration options in the UI to their default values.
@@ -552,10 +538,6 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(button_box), app->btn_stop, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(sidebar), button_box, FALSE, FALSE, 0);
 
-    app->btn_save_metrics = gtk_button_new_with_label("Save Metrics");
-    gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_save_metrics), "styled-button");
-    gtk_box_pack_start(GTK_BOX(sidebar), app->btn_save_metrics, FALSE, FALSE, 0);
-
     app->btn_defaults = gtk_button_new_with_label("Restore Defaults");
     gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_defaults), "styled-button");
     gtk_box_pack_start(GTK_BOX(sidebar), app->btn_defaults, FALSE, FALSE, 0);
@@ -610,7 +592,6 @@ GtkWidget* create_main_window(AppContext *app) {
     g_signal_connect(win, "delete-event", G_CALLBACK(on_window_delete), app);
     g_signal_connect(app->btn_start, "clicked", G_CALLBACK(on_btn_start_clicked), app);
     g_signal_connect(app->btn_stop, "clicked", G_CALLBACK(on_btn_stop_clicked), app);
-    g_signal_connect(app->btn_save_metrics, "clicked", G_CALLBACK(on_btn_export_metrics_clicked), app);
     g_signal_connect(app->btn_defaults, "clicked", G_CALLBACK(on_btn_defaults_clicked), app);
     g_signal_connect(app->btn_clear_log, "clicked", G_CALLBACK(on_btn_clear_log_clicked), app);
     g_signal_connect(app->cpu_drawing, "draw", G_CALLBACK(on_draw_cpu), app);
@@ -640,108 +621,6 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
     gtk_widget_set_sensitive(app->check_ptr, state);
     gtk_widget_set_sensitive(app->check_csv_realtime, state);
     gtk_widget_set_sensitive(app->btn_start, state);
-}
-
-/**
- * @brief Displays a file chooser dialog for exporting metrics.
- *
- * Allows the user to save the collected performance data to a file in
- * CSV or TXT format.
- */
-static void export_metrics_dialog(AppContext *app){
-    GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Metrics",
-        GTK_WINDOW(app->win),
-        GTK_FILE_CHOOSER_ACTION_SAVE,
-        "_Cancel", GTK_RESPONSE_CANCEL,
-        "_Save", GTK_RESPONSE_ACCEPT, NULL);
-
-    GtkFileFilter *filter_csv = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter_csv, "CSV File (*.csv)");
-    gtk_file_filter_add_pattern(filter_csv, "*.csv");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter_csv);
-
-    GtkFileFilter *filter_txt = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter_txt, "Text File (*.txt)");
-    gtk_file_filter_add_pattern(filter_txt, "*.txt");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter_txt);
-
-    char default_name[64];
-    snprintf(default_name, sizeof(default_name), "HardStress_Metrics_%.0f.csv", (double)time(NULL));
-    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), default_name);
-
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT){
-        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-
-        if (g_str_has_suffix(filename, ".csv")) {
-            export_to_csv_metrics(filename, app);
-        } else if (g_str_has_suffix(filename, ".txt")) {
-            export_to_txt_metrics(filename, app);
-        }
-
-        gui_log(app, "[GUI] Metrics exported to %s\n", filename);
-        g_free(filename);
-    }
-    gtk_widget_destroy(dialog);
-}
-
-/**
- * @brief Exports the collected thread performance history to a CSV file.
- */
-static void export_to_csv_metrics(const char *filename, AppContext *app) {
-    FILE *f = fopen(filename, "w");
-    if (!f){
-        gui_log(app, "[GUI] ERROR: Failed to open %s for writing\n", filename);
-        return;
-    }
-
-    fprintf(f, "timestamp_sec");
-    for (int t=0; t<app->threads; t++) fprintf(f, ",thread%d_iters_total", t);
-    fprintf(f, "\n");
-
-    g_mutex_lock(&app->history_mutex);
-    if(app->thread_history) {
-        for (int s=0; s<app->history_len; s++){
-            int idx = (app->history_pos + 1 + s) % app->history_len;
-            fprintf(f, "%.3f", (double)s * (CPU_SAMPLE_INTERVAL_MS / 1000.0));
-            for (int t=0; t<app->threads; t++) {
-                fprintf(f, ",%u", app->thread_history[t][idx]);
-            }
-            fprintf(f, "\n");
-        }
-    }
-    g_mutex_unlock(&app->history_mutex);
-
-    fclose(f);
-}
-
-/**
- * @brief Exports the collected thread performance history to a plain text file.
- */
-static void export_to_txt_metrics(const char *filename, AppContext *app) {
-    FILE *f = fopen(filename, "w");
-    if (!f){
-        gui_log(app, "[GUI] ERROR: Failed to open %s for writing\n", filename);
-        return;
-    }
-
-    fprintf(f, "timestamp_sec");
-    for (int t=0; t<app->threads; t++) fprintf(f, "\tthread%d_iters_total", t);
-    fprintf(f, "\n");
-
-    g_mutex_lock(&app->history_mutex);
-    if(app->thread_history) {
-        for (int s=0; s<app->history_len; s++){
-            int idx = (app->history_pos + 1 + s) % app->history_len;
-            fprintf(f, "%.3f", (double)s * (CPU_SAMPLE_INTERVAL_MS / 1000.0));
-            for (int t=0; t<app->threads; t++) {
-                fprintf(f, "\t%u", app->thread_history[t][idx]);
-            }
-            fprintf(f, "\n");
-        }
-    }
-    g_mutex_unlock(&app->history_mutex);
-
-    fclose(f);
 }
 
 /**
