@@ -34,8 +34,6 @@ static void on_btn_stop_clicked(GtkButton *b, gpointer ud);
 static void on_btn_export_metrics_clicked(GtkButton *b, gpointer ud);
 static void on_btn_defaults_clicked(GtkButton *b, gpointer ud);
 static void on_btn_clear_log_clicked(GtkButton *b, gpointer ud);
-static void check_memory_warning(AppContext *app);
-static void on_mem_entry_changed(GtkEditable *editable, gpointer user_data);
 static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud);
 static void on_window_destroy(GtkWidget *w, gpointer ud);
 static gboolean ui_tick(gpointer ud);
@@ -292,13 +290,6 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
     g_free(threads_str);
 
     errno = 0;
-    long mem = strtol(gtk_entry_get_text(GTK_ENTRY(app->entry_mem)), &end, 10);
-    if (*end != '\0' || mem <= 0 || errno == ERANGE){
-        gui_log(app, "[GUI] Invalid memory value\n");
-        return;
-    }
-
-    errno = 0;
     long dur = strtol(gtk_entry_get_text(GTK_ENTRY(app->entry_dur)), &end, 10);
     if (*end != '\0' || dur < 0 || errno == ERANGE){
         gui_log(app, "[GUI] Invalid duration value\n");
@@ -306,7 +297,7 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
     }
 
     app->threads = (threads == 0) ? detect_cpu_count() : (int)threads;
-    app->mem_mib_per_thread = (size_t)mem;
+    app->mem_mib_per_thread = DEFAULT_MEM_MIB;
     app->duration_sec = (int)dur;
     app->pin_affinity = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_pin));
     app->kernel_fpu_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_fpu));
@@ -357,10 +348,6 @@ static void on_btn_defaults_clicked(GtkButton *b, gpointer ud) {
     (void)b;
     AppContext *app = (AppContext*)ud;
 
-    char mem_buf[32];
-    snprintf(mem_buf, sizeof(mem_buf), "%d", DEFAULT_MEM_MIB);
-    gtk_entry_set_text(GTK_ENTRY(app->entry_mem), mem_buf);
-
     gtk_combo_box_set_active(GTK_COMBO_BOX(app->entry_threads), 0);
 
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_pin), TRUE);
@@ -376,7 +363,6 @@ static void on_btn_defaults_clicked(GtkButton *b, gpointer ud) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_csv_realtime), FALSE);
 
     gui_log(app, "[GUI] Settings restored to defaults.\n");
-    check_memory_warning(app);
 }
 
 /**
@@ -387,40 +373,6 @@ static void on_btn_clear_log_clicked(GtkButton *b, gpointer ud) {
     AppContext *app = (AppContext*)ud;
     gtk_text_buffer_set_text(app->log_buffer, "", -1);
     gui_log(app, "[GUI] Log cleared.\n");
-}
-
-/**
- * @brief Checks the configured memory and shows a warning if it's high.
- *
- * Displays a warning label if the memory per thread exceeds 20% of the
- * total system RAM.
- */
-static void check_memory_warning(AppContext *app) {
-    const char *text = gtk_entry_get_text(GTK_ENTRY(app->entry_mem));
-    char *end;
-    long mem_mb = strtol(text, &end, 10);
-
-    if (*end == '\0' && mem_mb > 0) {
-        unsigned long long total_mem_bytes = get_total_system_memory();
-        if (total_mem_bytes > 0) {
-            unsigned long long total_mem_mb = total_mem_bytes / (1024 * 1024);
-            if ((unsigned long long)mem_mb > total_mem_mb / 5) {
-                gtk_widget_show(app->mem_warning_label);
-            } else {
-                gtk_widget_hide(app->mem_warning_label);
-            }
-        }
-    } else {
-        gtk_widget_hide(app->mem_warning_label);
-    }
-}
-
-/**
- * @brief Callback for when the memory entry text changes.
- */
-static void on_mem_entry_changed(GtkEditable *editable, gpointer user_data) {
-    (void)editable;
-    check_memory_warning((AppContext*)user_data);
 }
 
 static gboolean check_if_stopped_and_close(gpointer user_data) {
@@ -532,25 +484,15 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(app->entry_threads), 0);
     gtk_grid_attach(GTK_GRID(config_grid), app->entry_threads, 1, row++, 1, 1);
 
-    // Memory
-    GtkWidget *mem_label = gtk_label_new("Memory (MiB/thread):");
+    // Memory (fixed)
+    GtkWidget *mem_label = gtk_label_new("Memory per thread:");
     gtk_widget_set_halign(mem_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(config_grid), mem_label, 0, row, 1, 1);
-    app->entry_mem = gtk_entry_new();
-    char mem_buf[32]; snprintf(mem_buf, sizeof(mem_buf), "%zu", app->mem_mib_per_thread);
-    gtk_entry_set_text(GTK_ENTRY(app->entry_mem), mem_buf);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(app->entry_mem), "Memory per thread");
-    gtk_grid_attach(GTK_GRID(config_grid), app->entry_mem, 1, row, 1, 1);
-    g_signal_connect(app->entry_mem, "changed", G_CALLBACK(on_mem_entry_changed), app);
-
-    app->mem_warning_label = gtk_label_new("Warning: Allocating more than 20% of available RAM is not recommended unless you are an advanced user. For standard operations, please keep the default value (256 MB).");
-    gtk_widget_set_halign(app->mem_warning_label, GTK_ALIGN_START);
-    gtk_style_context_add_class(gtk_widget_get_style_context(app->mem_warning_label), "warning-label");
-    gtk_grid_attach(GTK_GRID(config_grid), app->mem_warning_label, 0, ++row, 2, 1);
-    gtk_widget_set_no_show_all(app->mem_warning_label, TRUE);
-    gtk_widget_hide(app->mem_warning_label);
-    check_memory_warning(app);
-    row++;
+    char mem_buf[64];
+    snprintf(mem_buf, sizeof(mem_buf), "%zu MiB (fixed)", app->mem_mib_per_thread);
+    GtkWidget *mem_value_label = gtk_label_new(mem_buf);
+    gtk_widget_set_halign(mem_value_label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(config_grid), mem_value_label, 1, row++, 1, 1);
 
     // Duration
     GtkWidget *dur_label = gtk_label_new("Duration (s, 0=∞):");
@@ -690,7 +632,6 @@ GtkWidget* create_main_window(AppContext *app) {
  */
 static void set_controls_sensitive(AppContext *app, gboolean state){
     gtk_widget_set_sensitive(app->entry_threads, state);
-    gtk_widget_set_sensitive(app->entry_mem, state);
     gtk_widget_set_sensitive(app->entry_dur, state);
     gtk_widget_set_sensitive(app->check_pin, state);
     gtk_widget_set_sensitive(app->check_fpu, state);
