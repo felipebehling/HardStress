@@ -150,17 +150,16 @@ struct AppContext {
 
     /* --- GUI Widgets --- */
     GtkWidget *win;                 ///< The main application window.
-    GtkWidget *entry_threads, *entry_mem, *entry_dur; ///< Input fields for test parameters.
+    GtkWidget *entry_threads, *entry_dur; ///< Input fields for test parameters.
     GtkWidget *check_pin;           ///< Checkbox for enabling CPU pinning.
     GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes for stress kernels.
     GtkWidget *check_csv_realtime;  ///< Checkbox for real-time CSV logging.
-    GtkWidget *btn_start, *btn_stop, *btn_save_metrics, *btn_defaults, *btn_clear_log; ///< Control buttons.
+    GtkWidget *btn_start, *btn_stop, *btn_defaults, *btn_clear_log; ///< Control buttons.
     GtkTextBuffer *log_buffer;      ///< Text buffer for the event log panel.
     GtkWidget *log_view;            ///< Text view widget for the event log.
     GtkWidget *cpu_drawing;         ///< Drawing area for the per-core CPU utilization graph.
     GtkWidget *iters_drawing;       ///< Drawing area for the per-thread performance history graph.
     GtkWidget *status_label;        ///< Label for displaying the current application status.
-    GtkWidget *mem_warning_label;   ///< Label to warn about high memory allocation.
 };
 
 /* --- FUNCTION PROTOTYPES --- */
