@@ -14,14 +14,11 @@ static void sample_cpu_linux(AppContext *app);
 static void sample_temp_linux(AppContext *app);
 #endif
 
-static void log_csv_header(AppContext *app);
-static void log_csv_sample(AppContext *app);
-
 /* --- Sampler Thread Implementation --- */
 
 thread_return_t cpu_sampler_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
-    
+
 #ifdef _WIN32
     // On Windows, initialize COM for WMI and the PDH query for CPU usage.
     wmi_init(app);
@@ -29,11 +26,6 @@ thread_return_t cpu_sampler_thread_func(void *arg){
         gui_log(app, "[ERROR] Failed to initialize PDH for CPU monitoring.\n");
     }
 #endif
-
-    // If real-time CSV logging is enabled, write the header row.
-    if(app->csv_realtime_en) {
-        log_csv_header(app);
-    }
 
     while (atomic_load(&app->running)){
         // Select the correct sampling functions based on the OS
@@ -48,11 +40,6 @@ thread_return_t cpu_sampler_thread_func(void *arg){
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->cpu_drawing);
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->iters_drawing);
         
-        // If enabled, write the current sample to the CSV log.
-        if (app->csv_realtime_en) {
-            log_csv_sample(app);
-        }
-
         // Advance the circular buffer for the performance history graph
         g_mutex_lock(&app->history_mutex);
         app->history_pos = (app->history_pos + 1) % app->history_len;
@@ -330,51 +317,3 @@ static void sample_temp_windows(AppContext *app) {
 /**
  * @brief Writes the header row to the real-time CSV log file.
  */
-static void log_csv_header(AppContext *app) {
-    if (!app->csv_log_file) return;
-    fprintf(app->csv_log_file, "timestamp");
-    for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",cpu%d_usage", c);
-    for (int t = 0; t < app->threads; t++) fprintf(app->csv_log_file, ",thread%d_iters_total", t);
-    fprintf(app->csv_log_file, ",temp_celsius\n");
-    fflush(app->csv_log_file);
-}
-
-/**
- * @brief Writes a single data sample row to the real-time CSV log file.
- */
-static void log_csv_sample(AppContext *app) {
-    if (!app->csv_log_file) return;
-    
-    // Get current timestamp
-    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
-    double timestamp = ts.tv_sec + ts.tv_nsec * 1e-9;
-    fprintf(app->csv_log_file, "%.3f", timestamp);
-
-    // Log CPU usage for each core
-    g_mutex_lock(&app->cpu_mutex);
-    for (int c = 0; c < app->cpu_count; c++) fprintf(app->csv_log_file, ",%.6f", app->cpu_usage[c]);
-    g_mutex_unlock(&app->cpu_mutex);
-
-    // The history buffer stores the total iteration count. We need to log the
-    // value from the *previous* sample period, as the current one has just
-    // been zeroed out by the sampler thread.
-    g_mutex_lock(&app->history_mutex);
-    if (app->thread_history) {
-        // At the time of logging, app->history_pos holds the index for the
-        // sample period that just completed. The workers have already written
-        // their final iteration counts to this slice. The sampler thread
-        // advances and zeroes out the *next* slice only after this function returns.
-        int log_pos = app->history_pos;
-        for (int t = 0; t < app->threads; t++) {
-            fprintf(app->csv_log_file, ",%u", app->thread_history[t][log_pos]);
-        }
-    }
-    g_mutex_unlock(&app->history_mutex);
-    
-    // Log temperature
-    g_mutex_lock(&app->temp_mutex);
-    fprintf(app->csv_log_file, ",%.3f\n", app->temp_celsius);
-    g_mutex_unlock(&app->temp_mutex);
-    
-    fflush(app->csv_log_file);
-}

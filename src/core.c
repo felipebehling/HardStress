@@ -20,18 +20,6 @@ thread_return_t controller_thread_func(void *arg){
     atomic_store(&app->total_iters, 0);
     app->start_time = now_sec();
 
-    if(app->csv_realtime_en) {
-        char fname[256];
-        snprintf(fname, sizeof(fname), "hardstress_log_%.0f.csv", app->start_time);
-        app->csv_log_file = fopen(fname, "w");
-        if(app->csv_log_file) {
-            gui_log(app, "[Logger] Log CSV em tempo real ativo: %s\n", fname);
-        } else {
-            gui_log(app, "[Logger] ERRO: Nao foi possivel abrir o arquivo de log CSV.\n");
-            app->csv_realtime_en = 0; // Desativa se falhar
-        }
-    }
-
     int sampler_started = 0;
     int workers_started = 0;
 
@@ -122,11 +110,6 @@ cleanup:
 
     if (sampler_started){
         thread_join(app->cpu_sampler_thread);
-    }
-
-    if (app->csv_log_file) {
-        fclose(app->csv_log_file);
-        app->csv_log_file = NULL;
     }
 
     // Limpeza final dos buffers, mas NÃO da estrutura 'app'
