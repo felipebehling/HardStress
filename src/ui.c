@@ -299,7 +299,6 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
     app->kernel_int_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_int));
     app->kernel_stream_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_stream));
     app->kernel_ptr_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_ptr));
-    app->csv_realtime_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_csv_realtime));
 
     if (!app->kernel_fpu_en && !app->kernel_int_en && !app->kernel_stream_en && !app->kernel_ptr_en) {
         gui_log(app, "[GUI] ERROR: At least one stress kernel must be selected.\n");
@@ -345,8 +344,6 @@ static void on_btn_defaults_clicked(GtkButton *b, gpointer ud) {
     char dur_buf[32];
     snprintf(dur_buf, sizeof(dur_buf), "%d", DEFAULT_DURATION_SEC);
     gtk_entry_set_text(GTK_ENTRY(app->entry_dur), dur_buf);
-
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_csv_realtime), FALSE);
 
     gui_log(app, "[GUI] Settings restored to defaults.\n");
 }
@@ -520,11 +517,9 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(sidebar), options_frame, FALSE, FALSE, 0);
 
     app->check_pin = gtk_check_button_new_with_label("Pin threads to CPUs");
-    app->check_csv_realtime = gtk_check_button_new_with_label("Real-time CSV Log");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_pin), TRUE);
-    
+
     gtk_box_pack_start(GTK_BOX(options_box), app->check_pin, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(options_box), app->check_csv_realtime, FALSE, FALSE, 0);
 
     // Control Buttons
     GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -619,7 +614,6 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
     gtk_widget_set_sensitive(app->check_int, state);
     gtk_widget_set_sensitive(app->check_stream, state);
     gtk_widget_set_sensitive(app->check_ptr, state);
-    gtk_widget_set_sensitive(app->check_csv_realtime, state);
     gtk_widget_set_sensitive(app->btn_start, state);
 }
 

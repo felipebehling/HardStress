@@ -110,14 +110,12 @@ struct AppContext {
     int kernel_int_en;              ///< Boolean flag to enable the integer stress kernel.
     int kernel_stream_en;           ///< Boolean flag to enable the memory streaming kernel.
     int kernel_ptr_en;              ///< Boolean flag to enable the pointer-chasing kernel.
-    int csv_realtime_en;            ///< Boolean flag to enable real-time CSV logging.
 
     /* --- Runtime State --- */
     atomic_int running;             ///< Flag indicating if a stress test is currently active.
     atomic_int errors;              ///< Counter for errors encountered during the test.
     atomic_uint total_iters;        ///< Aggregated iteration count across all threads.
     double start_time;              ///< Timestamp (from `now_sec`) when the test started.
-    FILE *csv_log_file;             ///< File handle for the CSV export file.
 
     /* --- Workers & Threads --- */
     worker_t *workers;              ///< Array of worker thread contexts.
@@ -158,7 +156,6 @@ struct AppContext {
     GtkWidget *entry_threads, *entry_dur; ///< Input fields for test parameters.
     GtkWidget *check_pin;           ///< Checkbox for enabling CPU pinning.
     GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes for stress kernels.
-    GtkWidget *check_csv_realtime;  ///< Checkbox for real-time CSV logging.
     GtkWidget *btn_start, *btn_stop, *btn_defaults, *btn_clear_log; ///< Control buttons.
     GtkTextBuffer *log_buffer;      ///< Text buffer for the event log panel.
     GtkWidget *log_view;            ///< Text view widget for the event log.

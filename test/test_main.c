@@ -4,8 +4,6 @@
 #include "metrics.h"
 #include "utils.h"
 
-#include "metrics.c"
-
 // Forward declaration of test functions
 void test_detect_cpu_count();
 void test_get_total_system_memory();
@@ -13,7 +11,6 @@ void test_now_sec();
 void test_splitmix64();
 void test_shuffle32();
 void test_shuffle32_null_robustness();
-void test_csv_logging_bug();
 
 int main() {
     printf("Running tests...\n");
@@ -24,7 +21,6 @@ int main() {
     test_splitmix64();
     test_shuffle32();
     test_shuffle32_null_robustness();
-    test_csv_logging_bug();
 
     printf("\nAll tests passed!\n");
     return 0;
@@ -111,74 +107,6 @@ void test_shuffle32() {
     }
     assert(found_count == 10);
     printf("  - PASSED: Shuffled array contains all original elements.\n");
-}
-
-void test_csv_logging_bug() {
-    printf("\n- Running test_csv_logging_bug...\n");
-
-    AppContext app;
-    memset(&app, 0, sizeof(AppContext));
-
-    app.threads = 2;
-    app.cpu_count = 2;
-    app.history_len = 10;
-    app.history_pos = 1; // Sampler has just advanced to this position
-
-    // Allocate and initialize thread history
-    app.thread_history = calloc(app.threads, sizeof(unsigned*));
-    for (int i = 0; i < app.threads; i++) {
-        app.thread_history[i] = calloc(app.history_len, sizeof(unsigned));
-    }
-
-    // Previous position (0) has some data.
-    app.thread_history[0][0] = 100;
-    app.thread_history[1][0] = 200;
-
-    // The current, just-completed position (1) should have the real data.
-    // The bug was that the logger was reading from position 0 instead of 1.
-    app.thread_history[0][1] = 555;
-    app.thread_history[1][1] = 666;
-
-    // Dummy CPU usage data
-    app.cpu_usage = calloc(app.cpu_count, sizeof(double));
-    app.cpu_usage[0] = 0.5;
-    app.cpu_usage[1] = 0.6;
-    app.temp_celsius = 50.0;
-
-    // Open a temporary file to capture the log output
-    char tmp_filename[] = "temp_test_log.csv";
-    app.csv_log_file = fopen(tmp_filename, "w");
-    assert(app.csv_log_file != NULL);
-
-    // Call the function to be tested
-    log_csv_sample(&app);
-
-    fclose(app.csv_log_file);
-
-    // Read the file and check the content
-    FILE *f = fopen(tmp_filename, "r");
-    assert(f != NULL);
-
-    char line[512];
-    assert(fgets(line, sizeof(line), f) != NULL);
-
-    fclose(f);
-    remove(tmp_filename);
-
-    // With the fix, the implementation now logs the value at the current `history_pos`.
-    // In this test setup, `history_pos` is 1, and the values are 555 and 666.
-    // We expect to see ",555,666," for the thread iterations.
-    printf("  - Logged line: %s\n", line);
-    assert(strstr(line, ",555,666,") != NULL);
-
-    printf("  - PASSED: Logged iteration counts are correct.\n");
-
-    // Free allocated memory
-    for (int i = 0; i < app.threads; i++) {
-        free(app.thread_history[i]);
-    }
-    free(app.thread_history);
-    free(app.cpu_usage);
 }
 
 void test_shuffle32_null_robustness() {
