@@ -38,6 +38,7 @@ typedef struct { unsigned long long user,nice,system,idle,iowait,irq,softirq,ste
 #define DEFAULT_DURATION_SEC 300        ///< Default stress test duration in seconds (5 minutes).
 #define CPU_SAMPLE_INTERVAL_MS 1000     ///< Interval for sampling CPU usage and temperature in milliseconds.
 #define HISTORY_SAMPLES 240             ///< Number of historical data points to store for performance graphs.
+#define CPU_HISTORY_SAMPLES 60          ///< Number of samples kept for the CPU usage history graph.
 #define ITER_SCALE 1000.0               ///< Divisor for scaling iteration counts for display.
 #define TEMP_UNAVAILABLE -274.0         ///< Sentinel value indicating that temperature data is not available.
 
@@ -137,6 +138,10 @@ struct AppContext {
 #else
     cpu_sample_t *prev_cpu_samples; ///< A buffer to store the previous CPU sample for calculating usage delta.
 #endif
+    double **cpu_history;           ///< Circular history buffer storing per-core CPU usage samples.
+    int cpu_history_pos;            ///< Index of the most recent entry in the CPU history buffer.
+    int cpu_history_len;            ///< Total capacity of the CPU history buffer.
+    int cpu_history_filled;         ///< Number of valid samples currently stored in the history buffer.
 
     /* --- Per-Thread Performance History --- */
     unsigned **thread_history;      ///< A 2D circular buffer for storing per-thread iteration history.
