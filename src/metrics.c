@@ -44,6 +44,21 @@ thread_return_t cpu_sampler_thread_func(void *arg){
         sample_cpu_windows(app);
         sample_temp_windows(app);
 #endif
+
+        g_mutex_lock(&app->cpu_mutex);
+        if (app->cpu_history && app->cpu_history_len > 0 && app->cpu_count > 0) {
+            app->cpu_history_pos = (app->cpu_history_pos + 1) % app->cpu_history_len;
+            for (int c = 0; c < app->cpu_count; c++) {
+                double usage = app->cpu_usage ? app->cpu_usage[c] : 0.0;
+                if (usage < 0.0) usage = 0.0;
+                if (usage > 1.0) usage = 1.0;
+                app->cpu_history[c][app->cpu_history_pos] = usage;
+            }
+            if (app->cpu_history_filled < app->cpu_history_len) {
+                app->cpu_history_filled++;
+            }
+        }
+        g_mutex_unlock(&app->cpu_mutex);
         // Request the UI thread to redraw the graph widgets
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->cpu_drawing);
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->iters_drawing);

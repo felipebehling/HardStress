@@ -41,6 +41,22 @@ thread_return_t controller_thread_func(void *arg){
         gui_log(app, "[Controller] Falha ao alocar buffer de uso de CPU.\n");
         goto cleanup;
     }
+
+    app->cpu_history_len = CPU_HISTORY_SAMPLES;
+    app->cpu_history_pos = -1;
+    app->cpu_history_filled = 0;
+    app->cpu_history = calloc(app->cpu_count, sizeof(double*));
+    if (!app->cpu_history) {
+        gui_log(app, "[Controller] Falha ao alocar histórico de CPU.\n");
+        goto cleanup;
+    }
+    for (int c = 0; c < app->cpu_count; c++) {
+        app->cpu_history[c] = calloc(app->cpu_history_len, sizeof(double));
+        if (!app->cpu_history[c]) {
+            gui_log(app, "[Controller] Falha ao alocar histórico para CPU %d.\n", c);
+            goto cleanup;
+        }
+    }
 #ifndef _WIN32
     app->prev_cpu_samples = calloc(app->cpu_count, sizeof(cpu_sample_t));
     if (!app->prev_cpu_samples) {
@@ -137,7 +153,20 @@ cleanup:
     }
     free(app->workers); app->workers = NULL;
     free(app->worker_threads); app->worker_threads = NULL;
+
+    g_mutex_lock(&app->cpu_mutex);
+    if (app->cpu_history) {
+        for (int i = 0; i < app->cpu_count; i++) {
+            free(app->cpu_history[i]);
+        }
+        free(app->cpu_history);
+        app->cpu_history = NULL;
+    }
+    app->cpu_history_len = 0;
+    app->cpu_history_filled = 0;
+    app->cpu_history_pos = -1;
     free(app->cpu_usage); app->cpu_usage = NULL;
+    g_mutex_unlock(&app->cpu_mutex);
 #ifndef _WIN32
     free(app->prev_cpu_samples); app->prev_cpu_samples = NULL;
 #endif
