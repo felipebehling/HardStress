@@ -170,10 +170,6 @@ cleanup:
     free(app->curr_cpu_samples); app->curr_cpu_samples = NULL;
 #endif
 
-    // A thread se desvincula. Não há mais um handle para ela ser aguardada (joined).
-    thread_detach(app->controller_thread); 
-    app->controller_thread = 0;
-
     // Sinaliza para a UI que o teste terminou
     g_idle_add((GSourceFunc)gui_update_stopped, app);
     return 0;
