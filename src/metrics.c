@@ -1,7 +1,10 @@
 #include "metrics.h"
 #include "ui.h" // For gui_log
+#include <ctype.h>
 
 /* --- Static Function Prototypes --- */
+static void update_temp_cache(AppContext *app, char **labels, double *values, int count, double fallback);
+static void free_temp_entries(char **labels, int count);
 #ifdef _WIN32
 static int pdh_init_query(AppContext *app);
 static void pdh_close_query(AppContext *app);
@@ -78,6 +81,29 @@ thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg){
     wmi_deinit(app);
 #endif
     return 0;
+}
+
+static void update_temp_cache(AppContext *app, char **labels, double *values, int count, double fallback) {
+    g_mutex_lock(&app->temp_mutex);
+    free_temp_entries(app->core_temp_labels, app->core_temp_count);
+    g_free(app->core_temps);
+    app->core_temp_labels = labels;
+    app->core_temps = values;
+    app->core_temp_count = count;
+    if (count > 0 && values) {
+        app->temp_celsius = values[0];
+    } else {
+        app->temp_celsius = fallback;
+    }
+    g_mutex_unlock(&app->temp_mutex);
+}
+
+static void free_temp_entries(char **labels, int count) {
+    if (!labels) return;
+    for (int i = 0; i < count; ++i) {
+        g_free(labels[i]);
+    }
+    g_free(labels);
 }
 
 /* --- Data Collection Implementations --- */
@@ -179,22 +205,70 @@ static void sample_cpu_linux(AppContext *app) {
  */
 static void sample_temp_linux(AppContext *app){
     FILE *p = popen("sensors -u 2>/dev/null", "r");
-    if (!p){ g_mutex_lock(&app->temp_mutex); app->temp_celsius = TEMP_UNAVAILABLE; g_mutex_unlock(&app->temp_mutex); return; }
+    if (!p){
+        update_temp_cache(app, NULL, NULL, 0, TEMP_UNAVAILABLE);
+        return;
+    }
+
     char line[256];
-    double found = TEMP_UNAVAILABLE;
+    char current_label[128] = {0};
+    double fallback = TEMP_UNAVAILABLE;
+    char **labels = NULL;
+    double *values = NULL;
+    int count = 0;
+
     while (fgets(line, sizeof(line), p)){
-        // Look for the first line ending in "_input:", which typically indicates a temp sensor.
-        char *k = strstr(line, "_input:");
-        if (k){
-            double v;
-            if (sscanf(k+7, "%lf", &v) == 1){
-                found = v;
-                break; // Use the first one found
+        char *trim = line;
+        while (*trim && isspace((unsigned char)*trim)) trim++;
+        if (*trim == '\0') continue;
+
+        if (trim == line) {
+            char *colon = strchr(trim, ':');
+            if (!colon) continue;
+            size_t len = (size_t)(colon - trim);
+            if (len >= sizeof(current_label)) len = sizeof(current_label) - 1;
+            memcpy(current_label, trim, len);
+            current_label[len] = '\0';
+        } else {
+            char *input = strstr(trim, "_input:");
+            if (!input) continue;
+            double value;
+            if (sscanf(input + 7, "%lf", &value) != 1) continue;
+            if (fallback <= TEMP_UNAVAILABLE) fallback = value;
+            if (strncmp(current_label, "Core ", 5) != 0) continue;
+
+            char **tmp_labels = g_realloc(labels, sizeof(char*) * (count + 1));
+            if (!tmp_labels) {
+                pclose(p);
+                free_temp_entries(labels, count);
+                g_free(values);
+                update_temp_cache(app, NULL, NULL, 0, fallback);
+                return;
             }
+            labels = tmp_labels;
+            double *tmp_values = g_realloc(values, sizeof(double) * (count + 1));
+            if (!tmp_values) {
+                pclose(p);
+                free_temp_entries(labels, count);
+                g_free(values);
+                update_temp_cache(app, NULL, NULL, 0, fallback);
+                return;
+            }
+            values = tmp_values;
+            labels[count] = g_strdup(current_label);
+            if (!labels[count]) {
+                pclose(p);
+                free_temp_entries(labels, count);
+                g_free(values);
+                update_temp_cache(app, NULL, NULL, 0, fallback);
+                return;
+            }
+            values[count] = value;
+            count++;
         }
     }
     pclose(p);
-    g_mutex_lock(&app->temp_mutex); app->temp_celsius = found; g_mutex_unlock(&app->temp_mutex);
+    update_temp_cache(app, labels, values, count, fallback);
 }
 
 #else /* --- WINDOWS IMPLEMENTATION --- */
@@ -302,7 +376,7 @@ static void wmi_deinit(AppContext *app) {
  */
 static void sample_temp_windows(AppContext *app) {
     if (!app->pSvc) {
-        g_mutex_lock(&app->temp_mutex); app->temp_celsius = TEMP_UNAVAILABLE; g_mutex_unlock(&app->temp_mutex);
+        update_temp_cache(app, NULL, NULL, 0, TEMP_UNAVAILABLE);
         return;
     }
     IEnumWbemClassObject* pEnumerator = NULL;
@@ -322,7 +396,27 @@ static void sample_temp_windows(AppContext *app) {
         }
         pEnumerator->lpVtbl->Release(pEnumerator);
     }
-    g_mutex_lock(&app->temp_mutex); app->temp_celsius = temp; g_mutex_unlock(&app->temp_mutex);
+    int count = 0;
+    char **labels = NULL;
+    double *values = NULL;
+    if (temp > TEMP_UNAVAILABLE) {
+        labels = g_new0(char*, 1);
+        values = g_new(double, 1);
+        if (labels && values) {
+            labels[0] = g_strdup("Zona térmica");
+            if (labels[0]) {
+                values[0] = temp;
+                count = 1;
+            }
+        }
+        if (count == 0) {
+            g_free(labels);
+            g_free(values);
+            labels = NULL;
+            values = NULL;
+        }
+    }
+    update_temp_cache(app, labels, values, count, temp);
 }
 
 #endif
