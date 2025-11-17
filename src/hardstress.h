@@ -167,6 +167,7 @@ struct AppContext {
     GtkWidget *cpu_drawing;         ///< Drawing area for the per-core CPU utilization graph.
     GtkWidget *iters_drawing;       ///< Drawing area for the per-thread performance history graph.
     GtkWidget *status_label;        ///< Label for displaying the current application status.
+    guint status_tick_id;           ///< Source ID for the periodic status label update timer.
 };
 
 /* --- FUNCTION PROTOTYPES --- */
