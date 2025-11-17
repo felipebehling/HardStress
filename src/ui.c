@@ -19,7 +19,6 @@ typedef struct {
 static const rgba_t THEME_BG_SECONDARY = {0.157, 0.157, 0.227, 1.0};    // #28283a - Panels
 static const rgba_t THEME_BG_TERTIARY = {0.196, 0.196, 0.274, 1.0};     // #32324a - Elevated elements
 static const rgba_t THEME_ACCENT = {0.0, 0.749, 1.0, 1.0};              // #00bfff - Vibrant cyan blue
-static const rgba_t THEME_ACCENT_DIM = {0.0, 0.498, 0.667, 1.0};        // #007faa - Darker blue
 static const rgba_t THEME_WARN = {0.976, 0.886, 0.686, 1.0};            // #f9e2af - Amber/Orange
 static const rgba_t THEME_ERROR = {0.949, 0.561, 0.678, 1.0};           // #f28fad - Light red
 //static const rgba_t THEME_SUCCESS = {0.565, 0.933, 0.565, 1.0};         // #90ee90 - Light green
@@ -117,7 +116,7 @@ static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double 
 /**
  * @brief Cairo helper function to draw a grid background pattern.
  */
-static void draw_grid_background(cairo_t *cr, int width, int height, int spacing) {
+static void G_GNUC_UNUSED draw_grid_background(cairo_t *cr, int width, int height, int spacing) {
     cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, THEME_GRID.a);
     cairo_set_line_width(cr, 0.5);
     
@@ -864,6 +863,7 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
             cairo_show_text(cr, temp_label);
         }
     }
+    g_free(temps);
 
     if (labels) {
         for (int i = 0; i < sensor_count; ++i) {
