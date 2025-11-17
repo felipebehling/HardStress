@@ -152,6 +152,9 @@ struct AppContext {
     /* --- Temperature Monitoring --- */
     double temp_celsius;            ///< The last measured CPU temperature in degrees Celsius.
     GMutex temp_mutex;              ///< Mutex to protect access to `temp_celsius`.
+    char **core_temp_labels;        ///< Display labels for each physical core temperature sensor.
+    double *core_temps;             ///< Cached temperature readings for physical cores.
+    int core_temp_count;            ///< Number of valid entries in `core_temp_labels/core_temps`.
 
     /* --- GUI Widgets --- */
     GtkWidget *win;                 ///< The main application window.

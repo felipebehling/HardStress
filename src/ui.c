@@ -18,7 +18,6 @@ typedef struct {
 static const rgba_t THEME_BG_SECONDARY = {0.157, 0.157, 0.227, 1.0};    // #28283a - Panels
 static const rgba_t THEME_BG_TERTIARY = {0.196, 0.196, 0.274, 1.0};     // #32324a - Elevated elements
 static const rgba_t THEME_ACCENT = {0.0, 0.749, 1.0, 1.0};              // #00bfff - Vibrant cyan blue
-static const rgba_t THEME_ACCENT_DIM = {0.0, 0.498, 0.667, 1.0};        // #007faa - Darker blue
 static const rgba_t THEME_WARN = {0.976, 0.886, 0.686, 1.0};            // #f9e2af - Amber/Orange
 static const rgba_t THEME_ERROR = {0.949, 0.561, 0.678, 1.0};           // #f28fad - Light red
 //static const rgba_t THEME_SUCCESS = {0.565, 0.933, 0.565, 1.0};         // #90ee90 - Light green
@@ -40,7 +39,7 @@ static void set_controls_sensitive(AppContext *app, gboolean state);
 static gboolean gui_update_started(gpointer ud);
 static void apply_css_theme(GtkWidget *window);
 static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double h, double r);
-static void draw_grid_background(cairo_t *cr, int width, int height, int spacing);
+static void draw_grid_background(cairo_t *cr, int width, int height, int spacing) G_GNUC_UNUSED;
 
 gboolean gui_update_stopped(gpointer ud);
 
@@ -113,7 +112,7 @@ static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double 
 /**
  * @brief Cairo helper function to draw a grid background pattern.
  */
-static void draw_grid_background(cairo_t *cr, int width, int height, int spacing) {
+static void G_GNUC_UNUSED draw_grid_background(cairo_t *cr, int width, int height, int spacing) {
     cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, THEME_GRID.a);
     cairo_set_line_width(cr, 0.5);
     
@@ -145,6 +144,18 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
     if (atomic_load(&app->running)) {
         atomic_store(&app->running, 0);
     }
+    g_mutex_lock(&app->temp_mutex);
+    if (app->core_temp_labels) {
+        for (int i = 0; i < app->core_temp_count; ++i) {
+            g_free(app->core_temp_labels[i]);
+        }
+        g_free(app->core_temp_labels);
+        app->core_temp_labels = NULL;
+    }
+    g_free(app->core_temps);
+    app->core_temps = NULL;
+    app->core_temp_count = 0;
+    g_mutex_unlock(&app->temp_mutex);
     g_mutex_clear(&app->cpu_mutex);
     g_mutex_clear(&app->history_mutex);
     g_mutex_clear(&app->temp_mutex);
@@ -548,10 +559,10 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_container_set_border_width(GTK_CONTAINER(main_area), 20);
     gtk_box_pack_start(GTK_BOX(main_box), main_area, TRUE, TRUE, 0);
 
-    // CPU Graph
-    GtkWidget *cpu_frame = gtk_frame_new("CPU Utilization per Core");
+    // CPU Temperature List
+    GtkWidget *cpu_frame = gtk_frame_new("Temperaturas dos Núcleos Físicos");
     app->cpu_drawing = gtk_drawing_area_new();
-    gtk_widget_set_size_request(app->cpu_drawing, -1, 150);
+    gtk_widget_set_size_request(app->cpu_drawing, -1, 220);
     gtk_container_add(GTK_CONTAINER(cpu_frame), app->cpu_drawing);
     gtk_box_pack_start(GTK_BOX(main_area), cpu_frame, FALSE, FALSE, 0);
 
@@ -619,12 +630,11 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
 }
 
 /**
- * @brief Cairo drawing handler for the CPU utilization graph.
+ * @brief Cairo drawing handler for the CPU temperature list.
  *
- * This function is called whenever the `cpu_drawing` widget needs to be
- * repainted. It renders a history graph inspired by the Windows Task Manager,
- * plotting per-core utilization over time and displaying the current system
- * temperature.
+ * Instead of a line chart, the widget now renders a list of all detected
+ * physical cores with their current temperatures, making it easier to monitor
+ * thermal headroom during a stress test.
  */
 static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     AppContext *app = (AppContext*)user_data;
@@ -640,233 +650,195 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     draw_rounded_rect(cr, 0, 0, w, h, 8.0);
     cairo_fill(cr);
 
-    const double margin_left = 60.0;
-    const double margin_right = 22.0;
-    const double margin_top = 22.0;
-    const double margin_bottom = 48.0;
+    // Copy sensor readings under lock
+    char **labels = NULL;
+    double *temps = NULL;
+    int sensor_count = 0;
 
-    double graph_w = w - margin_left - margin_right;
-    double graph_h = h - margin_top - margin_bottom;
-    if (graph_w < 1.0) graph_w = 1.0;
-    if (graph_h < 1.0) graph_h = 1.0;
-
-    cairo_save(cr);
-    cairo_translate(cr, margin_left, margin_top);
-    cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.85);
-    cairo_rectangle(cr, 0, 0, graph_w, graph_h);
-    cairo_fill(cr);
-    draw_grid_background(cr, (int)graph_w, (int)graph_h, 30);
-    cairo_restore(cr);
-
-    const rgba_t cpu_colors[] = {
-        {0.2, 0.6, 1.0, 0.65}, {0.1, 0.9, 0.7, 0.65}, {1.0, 0.8, 0.2, 0.65}, {0.9, 0.3, 0.4, 0.65},
-        {0.6, 0.4, 1.0, 0.65}, {0.2, 0.9, 0.2, 0.65}, {1.0, 0.5, 0.1, 0.65}, {0.9, 0.1, 0.8, 0.65}
-    };
-    const int num_colors = sizeof(cpu_colors) / sizeof(cpu_colors[0]);
-
-    int cpu_count = 0;
-    int sample_count = 0;
-    int history_len = 0;
-    int history_pos = 0;
-    double average_usage = 0.0;
-    double latest_mean = 0.0;
-    double marker_canvas_y = margin_top + graph_h;
-    double last_point_x = margin_left + graph_w;
-
-    g_mutex_lock(&app->cpu_mutex);
-    cpu_count = app->cpu_count;
-    history_len = app->cpu_history_len;
-    history_pos = app->cpu_history_pos;
-    if (app->cpu_history && app->cpu_history_len > 0) {
-        sample_count = app->cpu_history_filled < app->cpu_history_len ? app->cpu_history_filled : app->cpu_history_len;
-    }
-    if (cpu_count > 0 && app->cpu_usage) {
-        for (int c = 0; c < cpu_count; c++) {
-            average_usage += app->cpu_usage[c];
-        }
-        average_usage /= cpu_count;
-    }
-
-    if (sample_count > 0 && app->cpu_history && cpu_count > 0 && history_len > 0) {
-        cairo_save(cr);
-        cairo_translate(cr, margin_left, margin_top);
-
-        double base_x = (sample_count > 1) ? 0.0 : graph_w;
-        cairo_new_path(cr);
-        cairo_move_to(cr, base_x, graph_h);
-        for (int s = 0; s < sample_count; s++) {
-            int idx = history_pos - (sample_count - 1 - s);
-            while (idx < 0) idx += history_len;
-            double mean = 0.0;
-            for (int c = 0; c < cpu_count; c++) {
-                if (app->cpu_history[c]) {
-                    mean += app->cpu_history[c][idx];
-                }
-            }
-            mean = (cpu_count > 0) ? mean / cpu_count : 0.0;
-            if (mean < 0.0) mean = 0.0;
-            if (mean > 1.0) mean = 1.0;
-            double x = (sample_count > 1) ? ((double)s / (sample_count - 1)) * graph_w : graph_w;
-            double y = graph_h - (mean * graph_h);
-            cairo_line_to(cr, x, y);
-            if (s == sample_count - 1) {
-                latest_mean = mean;
-            }
-        }
-        cairo_line_to(cr, graph_w, graph_h);
-        cairo_close_path(cr);
-        cairo_set_source_rgba(cr, THEME_ACCENT.r, THEME_ACCENT.g, THEME_ACCENT.b, 0.2);
-        cairo_fill_preserve(cr);
-        cairo_set_source_rgba(cr, THEME_ACCENT.r, THEME_ACCENT.g, THEME_ACCENT.b, 0.95);
-        cairo_set_line_width(cr, 2.0);
-        cairo_stroke(cr);
-
-        for (int c = 0; c < cpu_count; c++) {
-            if (!app->cpu_history[c]) continue;
-            cairo_new_path(cr);
-            for (int s = 0; s < sample_count; s++) {
-                int idx = history_pos - (sample_count - 1 - s);
-                while (idx < 0) idx += history_len;
-                double value = app->cpu_history[c][idx];
-                if (value < 0.0) value = 0.0;
-                if (value > 1.0) value = 1.0;
-                double x = (sample_count > 1) ? ((double)s / (sample_count - 1)) * graph_w : graph_w;
-                double y = graph_h - (value * graph_h);
-                if (s == 0) {
-                    cairo_move_to(cr, x, y);
+    g_mutex_lock(&app->temp_mutex);
+    if (app->core_temp_count > 0 && app->core_temp_labels && app->core_temps) {
+        int src = app->core_temp_count;
+        labels = g_new0(char*, src);
+        temps = g_new(double, src);
+        if (labels && temps) {
+            int copied = 0;
+            for (; copied < src; ++copied) {
+                temps[copied] = app->core_temps[copied];
+                const char *src_label = app->core_temp_labels[copied];
+                if (!src_label) {
+                    char fallback[32];
+                    snprintf(fallback, sizeof(fallback), "Core %d", copied);
+                    src_label = fallback;
+                    labels[copied] = g_strdup(fallback);
                 } else {
-                    cairo_line_to(cr, x, y);
+                    labels[copied] = g_strdup(src_label);
+                }
+                if (!labels[copied]) {
+                    break;
                 }
             }
-            cairo_set_line_width(cr, 1.0);
-            const rgba_t color = cpu_colors[c % num_colors];
-            cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
-            cairo_stroke(cr);
+            if (copied == src) {
+                sensor_count = src;
+            } else {
+                for (int i = 0; i < copied; ++i) g_free(labels[i]);
+                g_free(labels);
+                g_free(temps);
+                labels = NULL;
+                temps = NULL;
+            }
+        } else {
+            g_free(labels);
+            g_free(temps);
+            labels = NULL;
+            temps = NULL;
         }
-
-        cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.8);
-        cairo_set_line_width(cr, 1.0);
-        cairo_rectangle(cr, 0.5, 0.5, graph_w - 1.0, graph_h - 1.0);
-        cairo_stroke(cr);
-
-        double marker_y = graph_h - (latest_mean * graph_h);
-        marker_canvas_y = margin_top + marker_y;
-        cairo_set_source_rgba(cr, THEME_ACCENT.r, THEME_ACCENT.g, THEME_ACCENT.b, 0.4);
-        cairo_set_line_width(cr, 1.0);
-        cairo_move_to(cr, 0, marker_y);
-        cairo_line_to(cr, graph_w, marker_y);
-        cairo_stroke(cr);
-
-        cairo_set_source_rgba(cr, THEME_ACCENT.r, THEME_ACCENT.g, THEME_ACCENT.b, 0.85);
-        cairo_arc(cr, graph_w, marker_y, 3.5, 0, 2 * M_PI);
-        cairo_fill(cr);
-
-        cairo_restore(cr);
-    } else {
-        latest_mean = average_usage;
-        marker_canvas_y = margin_top + (graph_h - (latest_mean * graph_h));
+    } else if (app->temp_celsius > TEMP_UNAVAILABLE) {
+        labels = g_new0(char*, 1);
+        temps = g_new(double, 1);
+        if (labels && temps) {
+            labels[0] = g_strdup("Sensor térmico");
+            if (labels[0]) {
+                temps[0] = app->temp_celsius;
+                sensor_count = 1;
+            } else {
+                g_free(labels);
+                g_free(temps);
+                labels = NULL;
+                temps = NULL;
+            }
+        } else {
+            g_free(labels);
+            g_free(temps);
+            labels = NULL;
+            temps = NULL;
+        }
     }
+    g_mutex_unlock(&app->temp_mutex);
 
-    int drawn_samples = sample_count;
-    int logical_cores = cpu_count;
-    double usage_percent = average_usage;
-    double marker_percent = latest_mean;
+    const double margin = 20.0;
+    const double row_height = 38.0;
+    const double row_spacing = 8.0;
+    const double row_width = w - (margin * 2.0);
+    const double content_top = margin + 40.0;
 
-    g_mutex_unlock(&app->cpu_mutex);
-
-    // Axis ticks on the left
-    cairo_set_line_width(cr, 1.0);
-    cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, 0.85);
-    cairo_new_path(cr);
-    for (int i = 0; i <= 4; i++) {
-        double ratio = (double)i / 4.0;
-        double y = margin_top + graph_h - (ratio * graph_h);
-        cairo_move_to(cr, margin_left - 6, y + 0.5);
-        cairo_line_to(cr, margin_left, y + 0.5);
-    }
-    cairo_stroke(cr);
-
-    // Percentage labels for the axis
-    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 11);
-    for (int i = 0; i <= 4; i++) {
-        double ratio = (double)i / 4.0;
-        double percent = ratio * 100.0;
-        double y = margin_top + graph_h - (ratio * graph_h);
-        char label[16];
-        snprintf(label, sizeof(label), "%.0f%%", percent);
-        cairo_text_extents_t ext;
-        cairo_text_extents(cr, label, &ext);
-        cairo_move_to(cr, margin_left - ext.width - 10, y + ext.height / 2.5);
-        cairo_show_text(cr, label);
-    }
-
-    // Headline usage text
+    // Title
     cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, 18);
-    char usage_label[64];
-    snprintf(usage_label, sizeof(usage_label), "Uso da CPU %.0f%%", usage_percent * 100.0);
-    cairo_move_to(cr, margin_left + 14, margin_top + 24);
-    cairo_show_text(cr, usage_label);
+    cairo_move_to(cr, margin, margin + 18);
+    cairo_show_text(cr, "Temperaturas por núcleo físico");
 
-    // CPU count text
+    // Subtitle
     cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 11);
-    char cores_label[64];
-    snprintf(cores_label, sizeof(cores_label), "Processadores lógicos: %d", logical_cores > 0 ? logical_cores : 0);
-    cairo_move_to(cr, margin_left + 14, margin_top + 42);
-    cairo_show_text(cr, cores_label);
-
-    // Marker label near the latest data point
-    cairo_set_source_rgba(cr, THEME_ACCENT.r, THEME_ACCENT.g, THEME_ACCENT.b, 0.9);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 12);
-    char marker_label[16];
-    snprintf(marker_label, sizeof(marker_label), "%.0f%%", marker_percent * 100.0);
-    cairo_text_extents_t marker_ext;
-    cairo_text_extents(cr, marker_label, &marker_ext);
-    double marker_text_x = last_point_x - marker_ext.width - 8;
-    if (marker_text_x < margin_left + 6) marker_text_x = margin_left + 6;
-    double marker_text_y = marker_canvas_y - 6;
-    if (marker_text_y < margin_top + 16) marker_text_y = margin_top + 16;
-    if (marker_text_y > margin_top + graph_h - 4) marker_text_y = margin_top + graph_h - 4;
-    cairo_move_to(cr, marker_text_x, marker_text_y);
-    cairo_show_text(cr, marker_label);
-
-    // Time range label at the bottom right
-    double sample_interval_sec = (double)CPU_SAMPLE_INTERVAL_MS / 1000.0;
-    double range_seconds = sample_interval_sec * (drawn_samples > 0 ? drawn_samples : 1);
-    char range_label[64];
-    if (range_seconds >= 10.0) {
-        snprintf(range_label, sizeof(range_label), "Últimos %.0f s", range_seconds);
+    char subtitle[64];
+    if (sensor_count > 0) {
+        snprintf(subtitle, sizeof(subtitle), "%d sensores monitorados", sensor_count);
     } else {
-        snprintf(range_label, sizeof(range_label), "Últimos %.1f s", range_seconds);
+        snprintf(subtitle, sizeof(subtitle), "Sensores físicos indisponíveis");
     }
-    cairo_set_source_rgba(cr, THEME_ACCENT_DIM.r, THEME_ACCENT_DIM.g, THEME_ACCENT_DIM.b, 0.9);
-    cairo_text_extents_t range_ext;
-    cairo_text_extents(cr, range_label, &range_ext);
-    cairo_move_to(cr, margin_left + graph_w - range_ext.width, margin_top + graph_h + 28);
-    cairo_show_text(cr, range_label);
+    cairo_move_to(cr, margin, margin + 36);
+    cairo_show_text(cr, subtitle);
 
-    // Temperature indicator in the top-right corner of the graph
-    g_mutex_lock(&app->temp_mutex);
-    double temp = app->temp_celsius;
-    g_mutex_unlock(&app->temp_mutex);
+    if (sensor_count == 0) {
+        cairo_set_source_rgba(cr, THEME_WARN.r, THEME_WARN.g, THEME_WARN.b, 0.8);
+        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+        cairo_set_font_size(cr, 14);
+        cairo_text_extents_t ext;
+        const char *msg = "Nenhum núcleo físico com leitura de temperatura";
+        cairo_text_extents(cr, msg, &ext);
+        cairo_move_to(cr, (w - ext.width) / 2.0, h / 2.0 + ext.height / 2.0);
+        cairo_show_text(cr, msg);
+    } else {
+        double max_temp = temps[0];
+        double min_temp = temps[0];
+        for (int i = 1; i < sensor_count; ++i) {
+            if (temps[i] > max_temp) max_temp = temps[i];
+            if (temps[i] < min_temp) min_temp = temps[i];
+        }
 
-    if (temp > TEMP_UNAVAILABLE) {
-        char temp_label[64];
-        snprintf(temp_label, sizeof(temp_label), "🌡️ %.1f °C", temp);
-        cairo_set_source_rgba(cr, THEME_WARN.r, THEME_WARN.g, THEME_WARN.b, 1.0);
+        // Range badge
+        cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.9);
+        double badge_width = 180;
+        double badge_height = 26;
+        double badge_x = w - badge_width - margin;
+        double badge_y = margin + 12;
+        draw_rounded_rect(cr, badge_x, badge_y, badge_width, badge_height, 13);
+        cairo_fill(cr);
+        cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
         cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
         cairo_set_font_size(cr, 12);
-        cairo_text_extents_t temp_ext;
-        cairo_text_extents(cr, temp_label, &temp_ext);
-        cairo_move_to(cr, margin_left + graph_w - temp_ext.width - 10, margin_top + 20);
-        cairo_show_text(cr, temp_label);
+        char range_label[64];
+        snprintf(range_label, sizeof(range_label), "Intervalo %.1f – %.1f °C", min_temp, max_temp);
+        cairo_text_extents_t range_ext;
+        cairo_text_extents(cr, range_label, &range_ext);
+        cairo_move_to(cr, badge_x + (badge_width - range_ext.width) / 2.0, badge_y + badge_height - 9);
+        cairo_show_text(cr, range_label);
+
+        // Draw list rows
+        for (int i = 0; i < sensor_count; ++i) {
+            double row_y = content_top + i * (row_height + row_spacing);
+            if (row_y > h - row_height) break;
+            cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.75);
+            draw_rounded_rect(cr, margin, row_y, row_width, row_height, 10.0);
+            cairo_fill(cr);
+
+            // Label
+            cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+            cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, 12);
+            const char *label = labels[i] ? labels[i] : "Núcleo";
+            cairo_move_to(cr, margin + 14, row_y + row_height / 2.0 + 4);
+            cairo_show_text(cr, label);
+
+            // Bar gauge
+            double bar_x = margin + 150;
+            double bar_w = row_width - 220;
+            if (bar_w < 50) bar_w = 50;
+            double bar_h = row_height - 16;
+            double bar_y = row_y + 8;
+            cairo_set_source_rgba(cr, THEME_BG_SECONDARY.r, THEME_BG_SECONDARY.g, THEME_BG_SECONDARY.b, 0.9);
+            draw_rounded_rect(cr, bar_x, bar_y, bar_w, bar_h, bar_h / 2.0);
+            cairo_fill(cr);
+
+            double normalized = (temps[i] - 25.0) / 80.0;
+            if (normalized < 0.0) normalized = 0.0;
+            if (normalized > 1.0) normalized = 1.0;
+            double severity = (temps[i] - 60.0) / 35.0;
+            if (severity < 0.0) severity = 0.0;
+            if (severity > 1.0) severity = 1.0;
+            double fill_w = bar_w * normalized;
+            if (fill_w > 2.0) {
+                cairo_set_source_rgba(cr,
+                    THEME_ACCENT.r * (1.0 - severity) + THEME_ERROR.r * severity,
+                    THEME_ACCENT.g * (1.0 - severity) + THEME_ERROR.g * severity,
+                    THEME_ACCENT.b * (1.0 - severity) + THEME_ERROR.b * severity,
+                    0.95);
+                draw_rounded_rect(cr, bar_x, bar_y, fill_w, bar_h, bar_h / 2.0);
+                cairo_fill(cr);
+            }
+
+            // Temperature value
+            cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+            cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, 13);
+            char temp_label[32];
+            snprintf(temp_label, sizeof(temp_label), "%.1f °C", temps[i]);
+            cairo_text_extents_t temp_ext;
+            cairo_text_extents(cr, temp_label, &temp_ext);
+            cairo_move_to(cr, margin + row_width - temp_ext.width - 18, row_y + row_height / 2.0 + 4);
+            cairo_show_text(cr, temp_label);
+        }
     }
+
+    if (labels) {
+        for (int i = 0; i < sensor_count; ++i) {
+            g_free(labels[i]);
+        }
+        g_free(labels);
+    }
+    g_free(temps);
 
     return FALSE;
 }
