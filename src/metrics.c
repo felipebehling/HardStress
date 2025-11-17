@@ -85,11 +85,28 @@ thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg){
 
 static void update_temp_cache(AppContext *app, char **labels, double *values, int count, double fallback) {
     g_mutex_lock(&app->temp_mutex);
-    free_temp_entries(app->core_temp_labels, app->core_temp_count);
-    g_free(app->core_temps);
+
+    /*
+     * Always detach the previous cache before freeing it.  This prevents race
+     * conditions where other cleanup routines might have already released the
+     * buffers (for example, during shutdown) which would result in a
+     * double-free when the sampler thread attempts to refresh the cache.
+     */
+    char **old_labels = app->core_temp_labels;
+    int old_count = app->core_temp_count;
+    double *old_values = app->core_temps;
+
+    app->core_temp_labels = NULL;
+    app->core_temp_count = 0;
+    app->core_temps = NULL;
+
+    free_temp_entries(old_labels, old_count);
+    g_free(old_values);
+
     app->core_temp_labels = labels;
     app->core_temps = values;
     app->core_temp_count = count;
+
     if (count > 0 && values) {
         app->temp_celsius = values[0];
     } else {
