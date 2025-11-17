@@ -1,6 +1,7 @@
 /* ui.c - Modernized HardStress interface with a KDE Plasma-inspired style */
 #include "ui.h"
 #include "core.h"
+#include "metrics.h"
 #include "utils.h"
 #include <math.h>
 #include <time.h>
@@ -844,6 +845,7 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     } else {
         snprintf(range_label, sizeof(range_label), "Últimos %.1f s", range_seconds);
     }
+    cairo_set_source_rgba(cr, THEME_ACCENT_DIM.r, THEME_ACCENT_DIM.g, THEME_ACCENT_DIM.b, 0.9);
     cairo_text_extents_t range_ext;
     cairo_text_extents(cr, range_label, &range_ext);
     cairo_move_to(cr, margin_left + graph_w - range_ext.width, margin_top + graph_h + 28);
@@ -887,7 +889,6 @@ static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data
     // Divide the area: 70% for the graph, 30% for the legend table
     int graph_W = W * 0.7;
     int table_X = graph_W + 10;
-    int table_W = W - graph_W - 10;
 
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
 

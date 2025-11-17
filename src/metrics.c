@@ -16,7 +16,7 @@ static void sample_temp_linux(AppContext *app);
 
 /* --- Sampler Thread Implementation --- */
 
-thread_return_t cpu_sampler_thread_func(void *arg){
+thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
 
 #ifdef _WIN32

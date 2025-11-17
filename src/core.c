@@ -4,7 +4,7 @@
 #include "ui.h"      // Para gui_log
 
 /* --- Static Function Prototypes --- */
-static thread_return_t worker_main(void *arg);
+static thread_return_t THREAD_CALL worker_main(void *arg);
 static void kernel_fpu(float *A, float *B, float *C, size_t n, int iters);
 static inline uint64_t mix64(uint64_t x);
 static void kernel_int(uint64_t *dst, size_t n, int iters);
@@ -13,7 +13,7 @@ static void kernel_ptrchase(uint32_t *idx, size_t n, int rounds);
 
 /* --- Controller Thread Implementation --- */
 
-thread_return_t controller_thread_func(void *arg){
+thread_return_t THREAD_CALL controller_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
     atomic_store(&app->running, 1);
     atomic_store(&app->errors, 0);
@@ -173,7 +173,7 @@ cleanup:
  * loop, calling the selected stress kernel functions until signaled to stop.
  * @param arg A pointer to the worker's `worker_t` context.
  */
-static thread_return_t worker_main(void *arg){
+static thread_return_t THREAD_CALL worker_main(void *arg){
     worker_t *w = (worker_t*)arg;
     AppContext *app = w->app;
     
