@@ -354,6 +354,19 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
         return;
     }
 
+    unsigned long long total_mem_bytes = get_total_system_memory();
+    if (total_mem_bytes > 0 && app->threads > 0) {
+        unsigned long long required_bytes = app->mem_mib_per_thread * 1024ULL * 1024ULL;
+        required_bytes *= (unsigned long long)app->threads;
+        long double usage_ratio = (long double)required_bytes / (long double)total_mem_bytes;
+        if (usage_ratio >= 0.90L) {
+            gui_log(app,
+                "[GUI] ERROR: Configuration would reserve ~%llu MiB but only %llu MiB are available. Reduce the thread count.\n",
+                required_bytes / (1024ULL * 1024ULL), total_mem_bytes / (1024ULL * 1024ULL));
+            return;
+        }
+    }
+
     set_controls_sensitive(app, FALSE);
     g_idle_add(gui_update_started, app);
     thread_create(&app->controller_thread, controller_thread_func, app);

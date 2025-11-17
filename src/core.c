@@ -47,9 +47,17 @@ thread_return_t THREAD_CALL controller_thread_func(void *arg){
     }
 #ifndef _WIN32
     app->prev_cpu_samples = calloc(app->cpu_count, sizeof(cpu_sample_t));
-    if (!app->prev_cpu_samples) {
-        gui_log(app, "[Controller] Falha ao alocar amostras anteriores de CPU.\n");
+    app->curr_cpu_samples = calloc(app->cpu_count, sizeof(cpu_sample_t));
+    if (!app->prev_cpu_samples || !app->curr_cpu_samples) {
+        gui_log(app, "[Controller] Falha ao alocar buffers de amostragem de CPU.\n");
         goto cleanup;
+    }
+    if (read_proc_stat(app->prev_cpu_samples, app->cpu_count, "/proc/stat") <= 0) {
+        gui_log(app, "[Controller] Aviso: não foi possível capturar amostra inicial de CPU.\n");
+        memset(app->prev_cpu_samples, 0, app->cpu_count * sizeof(cpu_sample_t));
+        memset(app->curr_cpu_samples, 0, app->cpu_count * sizeof(cpu_sample_t));
+    } else {
+        memcpy(app->curr_cpu_samples, app->prev_cpu_samples, app->cpu_count * sizeof(cpu_sample_t));
     }
 #endif
 
@@ -159,6 +167,7 @@ cleanup:
     g_mutex_unlock(&app->cpu_mutex);
 #ifndef _WIN32
     free(app->prev_cpu_samples); app->prev_cpu_samples = NULL;
+    free(app->curr_cpu_samples); app->curr_cpu_samples = NULL;
 #endif
 
     // A thread se desvincula. Não há mais um handle para ela ser aguardada (joined).

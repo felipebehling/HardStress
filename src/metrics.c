@@ -177,24 +177,21 @@ double compute_usage(const cpu_sample_t *a,const cpu_sample_t *b){
 
 static void sample_cpu_linux(AppContext *app) {
     int n = app->cpu_count;
-    if (n <= 0 || !app->prev_cpu_samples) return;
+    if (n <= 0 || !app->prev_cpu_samples || !app->curr_cpu_samples) return;
 
-    cpu_sample_t *current_samples = calloc(n, sizeof(cpu_sample_t));
-    if (!current_samples) return;
-
-    if (read_proc_stat(current_samples, n, "/proc/stat") <= 0) {
-        free(current_samples);
+    if (read_proc_stat(app->curr_cpu_samples, n, "/proc/stat") <= 0) {
         return;
     }
 
     g_mutex_lock(&app->cpu_mutex);
     for (int i = 0; i < n; i++) {
-        app->cpu_usage[i] = compute_usage(&app->prev_cpu_samples[i], &current_samples[i]);
+        app->cpu_usage[i] = compute_usage(&app->prev_cpu_samples[i], &app->curr_cpu_samples[i]);
     }
     g_mutex_unlock(&app->cpu_mutex);
 
-    memcpy(app->prev_cpu_samples, current_samples, n * sizeof(cpu_sample_t));
-    free(current_samples);
+    cpu_sample_t *tmp = app->prev_cpu_samples;
+    app->prev_cpu_samples = app->curr_cpu_samples;
+    app->curr_cpu_samples = tmp;
 }
 
 /**
