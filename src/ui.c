@@ -7,6 +7,7 @@
 #include <time.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <float.h>
 
 /* --- Dark Theme Color Definitions --- */
 typedef struct {
@@ -39,7 +40,10 @@ static void set_controls_sensitive(AppContext *app, gboolean state);
 static gboolean gui_update_started(gpointer ud);
 static void apply_css_theme(GtkWidget *window);
 static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double h, double r);
-static void draw_grid_background(cairo_t *cr, int width, int height, int spacing) G_GNUC_UNUSED;
+static void draw_grid_background(cairo_t *cr, int width, int height, int spacing);
+static double clamp01(double v);
+static rgba_t lerp_color(rgba_t a, rgba_t b, double t);
+static rgba_t heatmap_color(double normalized);
 
 gboolean gui_update_stopped(gpointer ud);
 
@@ -129,6 +133,34 @@ static void G_GNUC_UNUSED draw_grid_background(cairo_t *cr, int width, int heigh
     }
     
     cairo_stroke(cr);
+}
+
+static double clamp01(double v) {
+    if (v < 0.0) return 0.0;
+    if (v > 1.0) return 1.0;
+    return v;
+}
+
+static rgba_t lerp_color(rgba_t a, rgba_t b, double t) {
+    rgba_t r = {
+        a.r + (b.r - a.r) * t,
+        a.g + (b.g - a.g) * t,
+        a.b + (b.b - a.b) * t,
+        a.a + (b.a - a.a) * t
+    };
+    return r;
+}
+
+static rgba_t heatmap_color(double normalized) {
+    static const rgba_t cold = {0.047, 0.203, 0.725, 1.0};
+    static const rgba_t warm = {1.0, 0.933, 0.0, 1.0};
+    static const rgba_t hot = {0.913, 0.231, 0.231, 1.0};
+
+    double n = clamp01(normalized);
+    if (n <= 0.5) {
+        return lerp_color(cold, warm, n / 0.5);
+    }
+    return lerp_color(warm, hot, (n - 0.5) / 0.5);
 }
 
 /**
@@ -567,7 +599,7 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(main_area), cpu_frame, FALSE, FALSE, 0);
 
     // Iterations Graph
-    GtkWidget *iters_frame = gtk_frame_new("Performance per Thread (Iterations/s)");
+    GtkWidget *iters_frame = gtk_frame_new("Thread Activity Heatmap");
     app->iters_drawing = gtk_drawing_area_new();
     gtk_widget_set_size_request(app->iters_drawing, -1, 300);
     gtk_container_add(GTK_CONTAINER(iters_frame), app->iters_drawing);
@@ -831,6 +863,7 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
             cairo_show_text(cr, temp_label);
         }
     }
+    g_free(temps);
 
     if (labels) {
         for (int i = 0; i < sensor_count; ++i) {
@@ -852,140 +885,175 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
  */
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     AppContext *app = (AppContext*)user_data;
-    if (!atomic_load(&app->running) || !app->workers) return FALSE;
+    if (!app || !app->workers) return FALSE;
 
-    GtkAllocation alloc; 
+    GtkAllocation alloc;
     gtk_widget_get_allocation(widget, &alloc);
-    int W = alloc.width, H = alloc.height;
-    
-    // Divide the area: 70% for the graph, 30% for the legend table
-    int graph_W = W * 0.7;
-    int table_X = graph_W + 10;
+    const double W = alloc.width;
+    const double H = alloc.height;
 
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
 
-    // Background
     cairo_set_source_rgba(cr, THEME_BG_SECONDARY.r, THEME_BG_SECONDARY.g, THEME_BG_SECONDARY.b, THEME_BG_SECONDARY.a);
     draw_rounded_rect(cr, 0, 0, W, H, 8.0);
     cairo_fill(cr);
-    
-    // Grid for the graph area
-    draw_grid_background(cr, graph_W, H, 30);
 
-    const rgba_t thread_colors[] = {
-        {0.2, 0.6, 1.0, 0.8}, {0.1, 0.9, 0.7, 0.8}, {1.0, 0.8, 0.2, 0.8}, {0.9, 0.3, 0.4, 0.8},
-        {0.6, 0.4, 1.0, 0.8}, {0.2, 0.9, 0.2, 0.8}, {1.0, 0.5, 0.1, 0.8}, {0.9, 0.1, 0.8, 0.8}
-    };
-    const int num_colors = sizeof(thread_colors) / sizeof(rgba_t);
-
-    unsigned long long total_diff = 0;
-    unsigned* diffs = calloc(app->threads, sizeof(unsigned));
-
-    g_mutex_lock(&app->history_mutex);
-
-    // First pass: calculate diffs and total_diff
-    int samples = app->history_len;
-    int start_idx = (app->history_pos + 1) % samples;
-    int end_idx = app->history_pos;
-
-    if (app->thread_history) {
-        for (int t = 0; t < app->threads; t++) {
-            unsigned start_v = app->thread_history[t][start_idx];
-            unsigned end_v = app->thread_history[t][end_idx];
-            unsigned diff = (end_v > start_v) ? (end_v - start_v) : 0;
-            if (diffs) diffs[t] = diff;
-            total_diff += diff;
-        }
+    if (!app->thread_history || app->history_len <= 1 || app->threads <= 0) {
+        cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.8);
+        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 14);
+        cairo_text_extents_t ext;
+        const char *msg = "Heatmap aguardando dados...";
+        cairo_text_extents(cr, msg, &ext);
+        cairo_move_to(cr, (W - ext.width)/2.0, (H + ext.height)/2.0);
+        cairo_show_text(cr, msg);
+        return FALSE;
     }
 
-    // Second pass: draw graphs
-    for (int t=0; t < app->threads; t++){
-        worker_status_t status = atomic_load(&app->workers[t].status);
+    const double margin_left = 70.0;
+    const double margin_right = 90.0;
+    const double margin_top = 24.0;
+    const double margin_bottom = 36.0;
 
-        if (status == WORKER_ALLOC_FAIL) {
-            cairo_set_source_rgba(cr, THEME_ERROR.r, THEME_ERROR.g, THEME_ERROR.b, 1.0);
-            cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, 16);
-            cairo_text_extents_t extents;
-            cairo_text_extents(cr, "ALLOCATION FAILED", &extents);
-            cairo_move_to(cr, W/2.0 - extents.width/2.0, H/2.0 + extents.height/2.0);
-            cairo_show_text(cr, "ALLOCATION FAILED");
-            break;
-        }
-        
-        const rgba_t c = thread_colors[t % num_colors];
-        cairo_set_source_rgba(cr, c.r, c.g, c.b, c.a);
-        cairo_set_line_width(cr, 2.5);
-        cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-        
-        double step_x = (samples > 1) ? ((double)graph_W / (samples - 1)) : graph_W;
-        
-        unsigned last_v = app->thread_history ? app->thread_history[t][start_idx] : 0;
+    const double heat_w = fmax(1.0, W - margin_left - margin_right);
+    const double heat_h = fmax(1.0, H - margin_top - margin_bottom);
+    const double cell_w = heat_w / app->history_len;
+    const double cell_h = heat_h / app->threads;
 
-        cairo_move_to(cr, -10, H + 10);
+    const int samples = app->history_len;
+    const int threads = app->threads;
+    const double sample_interval_sec = (double)CPU_SAMPLE_INTERVAL_MS / 1000.0;
 
+    double *values = calloc((size_t)threads * samples, sizeof(double));
+    gboolean *thread_active = calloc(threads, sizeof(gboolean));
+    double min_val = DBL_MAX;
+    double max_val = 0.0;
+
+    g_mutex_lock(&app->history_mutex);
+    int start_idx = (app->history_pos + 1) % samples;
+    for (int t = 0; t < threads; t++) {
         for (int s = 0; s < samples; s++) {
-            int current_idx = (start_idx + s) % samples;
-            unsigned current_v = app->thread_history ? app->thread_history[t][current_idx] : 0;
-            unsigned diff_hist = (current_v > last_v) ? (current_v - last_v) : 0;
-            
-            double sample_interval_sec = (double)CPU_SAMPLE_INTERVAL_MS / 1000.0;
-            double y_val = ((double)diff_hist / sample_interval_sec) / ITER_SCALE;
-            double y = H - y_val * H;
-            y = fmax(0, fmin(H, y));
-            
-            cairo_line_to(cr, s * step_x, y);
-            last_v = current_v;
+            int idx = (start_idx + s) % samples;
+            int prev_idx = (idx + samples - 1) % samples;
+            unsigned current_v = app->thread_history[t][idx];
+            unsigned prev_v = app->thread_history[t][prev_idx];
+            unsigned diff = (current_v > prev_v) ? (current_v - prev_v) : 0;
+            double metric = diff / sample_interval_sec;
+            values[t * samples + s] = metric;
+            if (metric > 0.0) {
+                thread_active[t] = TRUE;
+                if (metric > max_val) max_val = metric;
+                if (metric < min_val) min_val = metric;
+            }
         }
-        cairo_stroke(cr);
     }
     g_mutex_unlock(&app->history_mutex);
 
-    // --- Legend Table ---
-    double y_pos = 25;
-    double row_h = 22;
-    // Header
-    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 1.0);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 11);
-    cairo_move_to(cr, table_X + 25, y_pos); cairo_show_text(cr, "Thread");
-    cairo_move_to(cr, table_X + 90, y_pos); cairo_show_text(cr, "Iters/s");
-    cairo_move_to(cr, table_X + 160, y_pos); cairo_show_text(cr, "Contrib.");
-    y_pos += row_h;
-
-    // Rows
-    for (int t=0; t < app->threads; t++) {
-        const rgba_t c = thread_colors[t % num_colors];
-        cairo_set_source_rgba(cr, c.r, c.g, c.b, c.a);
-        cairo_rectangle(cr, table_X + 5, y_pos - 12, 12, 12);
-        cairo_fill(cr);
-
-        char lbl[64];
-        cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        cairo_set_font_size(cr, 11);
-
-        // Thread ID
-        snprintf(lbl, sizeof(lbl), "%d", t);
-        cairo_move_to(cr, table_X + 25, y_pos);
-        cairo_show_text(cr, lbl);
-
-        // Iters/s (raw number)
-        double sample_interval_sec = (double)CPU_SAMPLE_INTERVAL_MS / 1000.0;
-        double iters_s = diffs ? ((double)diffs[t] / sample_interval_sec) : 0.0;
-        snprintf(lbl, sizeof(lbl), "%.0f", iters_s);
-        cairo_move_to(cr, table_X + 90, y_pos);
-        cairo_show_text(cr, lbl);
-
-        // Contribution (%)
-        double percentage = (total_diff > 0 && diffs) ? ((double)diffs[t] * 100.0 / total_diff) : 0.0;
-        snprintf(lbl, sizeof(lbl), "%.1f%%", percentage);
-        cairo_move_to(cr, table_X + 160, y_pos);
-        cairo_show_text(cr, lbl);
-
-        y_pos += row_h;
+    if (min_val == DBL_MAX) {
+        min_val = 0.0;
     }
-    
-    free(diffs);
+    if (max_val < min_val) {
+        max_val = min_val;
+    }
+    double range = (max_val > min_val) ? (max_val - min_val) : 1.0;
+
+    cairo_save(cr);
+    cairo_rectangle(cr, margin_left, margin_top, heat_w, heat_h);
+    cairo_clip(cr);
+    cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.8);
+    cairo_paint(cr);
+
+    for (int t = 0; t < threads; t++) {
+        for (int s = 0; s < samples; s++) {
+            double value = values[t * samples + s];
+            double normalized = (value - min_val) / range;
+            rgba_t c = heatmap_color(normalized);
+            cairo_set_source_rgba(cr, c.r, c.g, c.b, c.a);
+            double x = margin_left + s * cell_w;
+            double y = margin_top + t * cell_h;
+            cairo_rectangle(cr, x, y, ceil(cell_w) + 1, ceil(cell_h) + 1);
+            cairo_fill(cr);
+        }
+    }
+
+    cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, 0.4);
+    cairo_set_line_width(cr, 0.5);
+    for (int t = 0; t <= threads; t++) {
+        double y = margin_top + t * cell_h;
+        cairo_move_to(cr, margin_left, y + 0.5);
+        cairo_line_to(cr, margin_left + heat_w, y + 0.5);
+    }
+    for (int s = 0; s <= samples; s++) {
+        double x = margin_left + s * cell_w;
+        cairo_move_to(cr, x + 0.5, margin_top);
+        cairo_line_to(cr, x + 0.5, margin_top + heat_h);
+    }
+    cairo_stroke(cr);
+    cairo_restore(cr);
+
+    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 12);
+    for (int t = 0; t < threads; t++) {
+        double text_y = margin_top + (t + 0.5) * cell_h + 4;
+        cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+        char label[32];
+        snprintf(label, sizeof(label), "T%d", t);
+        cairo_move_to(cr, 12, text_y);
+        cairo_show_text(cr, label);
+
+        worker_status_t status = atomic_load(&app->workers[t].status);
+        if (status == WORKER_ALLOC_FAIL) {
+            cairo_set_source_rgba(cr, THEME_ERROR.r, THEME_ERROR.g, THEME_ERROR.b, 0.9);
+            cairo_move_to(cr, 35, text_y);
+            cairo_show_text(cr, "erro");
+        } else if (!thread_active[t]) {
+            cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.8);
+            cairo_move_to(cr, 35, text_y);
+            cairo_show_text(cr, "ocioso");
+        }
+    }
+
+    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
+    cairo_set_font_size(cr, 11);
+    double time_span = ((double)samples * CPU_SAMPLE_INTERVAL_MS) / 1000.0;
+    char time_label[64];
+    if (time_span >= 10.0) snprintf(time_label, sizeof(time_label), "Janela de %.0f s", time_span);
+    else snprintf(time_label, sizeof(time_label), "Janela de %.1f s", time_span);
+    cairo_move_to(cr, margin_left, H - 12);
+    cairo_show_text(cr, time_label);
+
+    cairo_set_font_size(cr, 13);
+    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+    cairo_move_to(cr, margin_left, margin_top - 6);
+    cairo_show_text(cr, "Histórico (mais recente à direita)");
+
+    double legend_x = margin_left + heat_w + 20.0;
+    double legend_y = margin_top;
+    double legend_w = 20.0;
+    double legend_h = heat_h;
+    for (int i = 0; i < (int)legend_h; i++) {
+        double ratio = 1.0 - ((double)i / legend_h);
+        rgba_t c = heatmap_color(ratio);
+        cairo_set_source_rgba(cr, c.r, c.g, c.b, c.a);
+        cairo_rectangle(cr, legend_x, legend_y + i, legend_w, 1.0);
+        cairo_fill(cr);
+    }
+    cairo_rectangle(cr, legend_x, legend_y, legend_w, legend_h);
+    cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, 1.0);
+    cairo_stroke(cr);
+
+    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+    cairo_set_font_size(cr, 11);
+    char max_label[64];
+    char min_label[64];
+    snprintf(max_label, sizeof(max_label), "%.0f it/s", max_val);
+    snprintf(min_label, sizeof(min_label), "%.0f it/s", min_val);
+    cairo_move_to(cr, legend_x + legend_w + 8, legend_y + 10);
+    cairo_show_text(cr, max_label);
+    cairo_move_to(cr, legend_x + legend_w + 8, legend_y + legend_h);
+    cairo_show_text(cr, min_label);
+
+    free(values);
+    free(thread_active);
     return FALSE;
 }

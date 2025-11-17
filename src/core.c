@@ -53,7 +53,14 @@ thread_return_t THREAD_CALL controller_thread_func(void *arg){
     }
 #endif
 
-    app->history_len = HISTORY_SAMPLES;
+    int history_span = HISTORY_SAMPLES;
+    if (app->duration_sec > 0) {
+        history_span = app->duration_sec;
+    }
+    if (history_span <= 0) {
+        history_span = HISTORY_SAMPLES;
+    }
+    app->history_len = history_span;
     app->history_pos = 0;
     app->thread_history = calloc(app->threads, sizeof(unsigned*));
     if (!app->thread_history) {
