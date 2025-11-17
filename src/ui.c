@@ -181,6 +181,12 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
         g_source_remove(app->status_tick_id);
         app->status_tick_id = 0;
     }
+
+    if (app->controller_thread) {
+        thread_join(app->controller_thread);
+        app->controller_thread = 0;
+    }
+
     g_mutex_lock(&app->temp_mutex);
     if (app->core_temp_labels) {
         for (int i = 0; i < app->core_temp_count; ++i) {
@@ -294,6 +300,10 @@ static gboolean gui_update_started(gpointer ud){
  */
 gboolean gui_update_stopped(gpointer ud){
     AppContext *app = (AppContext*)ud;
+    if (app->controller_thread) {
+        thread_join(app->controller_thread);
+        app->controller_thread = 0;
+    }
     set_controls_sensitive(app, TRUE);
     gtk_widget_set_sensitive(app->btn_stop, FALSE);
     gtk_label_set_text(GTK_LABEL(app->status_label), "⏹ Stopped");
