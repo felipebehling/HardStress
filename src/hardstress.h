@@ -137,6 +137,7 @@ struct AppContext {
     IWbemLocator *pLoc;             ///< A pointer to the WMI locator for connecting to WMI.
 #else
     cpu_sample_t *prev_cpu_samples; ///< A buffer to store the previous CPU sample for calculating usage delta.
+    cpu_sample_t *curr_cpu_samples; ///< Scratch buffer reused for the most recent CPU sample.
 #endif
     double **cpu_history;           ///< Circular history buffer storing per-core CPU usage samples.
     int cpu_history_pos;            ///< Index of the most recent entry in the CPU history buffer.
