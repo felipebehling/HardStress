@@ -597,7 +597,7 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(main_box), main_area, TRUE, TRUE, 0);
 
     // CPU Temperature List
-    GtkWidget *cpu_frame = gtk_frame_new("Temperaturas dos Núcleos Físicos");
+    GtkWidget *cpu_frame = gtk_frame_new("Temperatura do Processador");
     app->cpu_drawing = gtk_drawing_area_new();
     gtk_widget_set_size_request(app->cpu_drawing, -1, 220);
     gtk_container_add(GTK_CONTAINER(cpu_frame), app->cpu_drawing);
@@ -667,11 +667,11 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
 }
 
 /**
- * @brief Cairo drawing handler for the CPU temperature list.
+ * @brief Cairo drawing handler for the aggregate CPU temperature gauge.
  *
- * Instead of a line chart, the widget now renders a list of all detected
- * physical cores with their current temperatures, making it easier to monitor
- * thermal headroom during a stress test.
+ * The widget now emphasizes a single, processor-wide temperature reading,
+ * rendering it as a wide gauge accompanied by contextual labels so that users
+ * can quickly assess thermal headroom during a stress test.
  */
 static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     AppContext *app = (AppContext*)user_data;
@@ -687,196 +687,86 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     draw_rounded_rect(cr, 0, 0, w, h, 8.0);
     cairo_fill(cr);
 
-    // Copy sensor readings under lock
-    char **labels = NULL;
-    double *temps = NULL;
-    int sensor_count = 0;
-
+    double current_temp = TEMP_UNAVAILABLE;
     g_mutex_lock(&app->temp_mutex);
-    if (app->core_temp_count > 0 && app->core_temp_labels && app->core_temps) {
-        int src = app->core_temp_count;
-        labels = g_new0(char*, src);
-        temps = g_new(double, src);
-        if (labels && temps) {
-            int copied = 0;
-            for (; copied < src; ++copied) {
-                temps[copied] = app->core_temps[copied];
-                const char *src_label = app->core_temp_labels[copied];
-                if (!src_label) {
-                    char fallback[32];
-                    snprintf(fallback, sizeof(fallback), "Core %d", copied);
-                    src_label = fallback;
-                    labels[copied] = g_strdup(fallback);
-                } else {
-                    labels[copied] = g_strdup(src_label);
-                }
-                if (!labels[copied]) {
-                    break;
-                }
-            }
-            if (copied == src) {
-                sensor_count = src;
-            } else {
-                for (int i = 0; i < copied; ++i) g_free(labels[i]);
-                g_free(labels);
-                g_free(temps);
-                labels = NULL;
-                temps = NULL;
-            }
-        } else {
-            g_free(labels);
-            g_free(temps);
-            labels = NULL;
-            temps = NULL;
-        }
-    } else if (app->temp_celsius > TEMP_UNAVAILABLE) {
-        labels = g_new0(char*, 1);
-        temps = g_new(double, 1);
-        if (labels && temps) {
-            labels[0] = g_strdup("Sensor térmico");
-            if (labels[0]) {
-                temps[0] = app->temp_celsius;
-                sensor_count = 1;
-            } else {
-                g_free(labels);
-                g_free(temps);
-                labels = NULL;
-                temps = NULL;
-            }
-        } else {
-            g_free(labels);
-            g_free(temps);
-            labels = NULL;
-            temps = NULL;
-        }
-    }
+    current_temp = app->temp_celsius;
     g_mutex_unlock(&app->temp_mutex);
 
     const double margin = 20.0;
-    const double row_height = 38.0;
-    const double row_spacing = 8.0;
-    const double row_width = w - (margin * 2.0);
-    const double content_top = margin + 40.0;
+    const double title_y = margin + 18.0;
 
     // Title
     cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, 18);
-    cairo_move_to(cr, margin, margin + 18);
-    cairo_show_text(cr, "Temperaturas por núcleo físico");
+    cairo_move_to(cr, margin, title_y);
+    cairo_show_text(cr, "Temperatura geral do processador");
 
-    // Subtitle
     cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 11);
-    char subtitle[64];
-    if (sensor_count > 0) {
-        snprintf(subtitle, sizeof(subtitle), "%d sensores monitorados", sensor_count);
-    } else {
-        snprintf(subtitle, sizeof(subtitle), "Sensores físicos indisponíveis");
-    }
-    cairo_move_to(cr, margin, margin + 36);
-    cairo_show_text(cr, subtitle);
+    cairo_set_font_size(cr, 12);
+    cairo_move_to(cr, margin, title_y + 18);
+    cairo_show_text(cr, "Leitura térmica agregada em tempo real");
 
-    if (sensor_count == 0) {
+    if (current_temp <= TEMP_UNAVAILABLE) {
         cairo_set_source_rgba(cr, THEME_WARN.r, THEME_WARN.g, THEME_WARN.b, 0.8);
         cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-        cairo_set_font_size(cr, 14);
+        cairo_set_font_size(cr, 16);
         cairo_text_extents_t ext;
-        const char *msg = "Nenhum núcleo físico com leitura de temperatura";
+        const char *msg = "Temperatura indisponível";
         cairo_text_extents(cr, msg, &ext);
-        cairo_move_to(cr, (w - ext.width) / 2.0, h / 2.0 + ext.height / 2.0);
+        cairo_move_to(cr, (w - ext.width) / 2.0, (h + ext.height) / 2.0);
         cairo_show_text(cr, msg);
-    } else {
-        double max_temp = temps[0];
-        double min_temp = temps[0];
-        for (int i = 1; i < sensor_count; ++i) {
-            if (temps[i] > max_temp) max_temp = temps[i];
-            if (temps[i] < min_temp) min_temp = temps[i];
-        }
+        return FALSE;
+    }
 
-        // Range badge
-        cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.9);
-        double badge_width = 180;
-        double badge_height = 26;
-        double badge_x = w - badge_width - margin;
-        double badge_y = margin + 12;
-        draw_rounded_rect(cr, badge_x, badge_y, badge_width, badge_height, 13);
+    // Draw gauge container
+    const double gauge_margin_top = margin + 60.0;
+    const double gauge_height = 60.0;
+    const double gauge_width = w - (margin * 2.0);
+    cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.85);
+    draw_rounded_rect(cr, margin, gauge_margin_top, gauge_width, gauge_height, gauge_height / 2.0);
+    cairo_fill(cr);
+
+    // Normalize temperature to 25°C – 105°C range for visualization
+    double normalized = (current_temp - 25.0) / 80.0;
+    if (normalized < 0.0) normalized = 0.0;
+    if (normalized > 1.0) normalized = 1.0;
+
+    double severity = (current_temp - 60.0) / 35.0;
+    if (severity < 0.0) severity = 0.0;
+    if (severity > 1.0) severity = 1.0;
+
+    double fill_w = gauge_width * normalized;
+    if (fill_w > 2.0) {
+        cairo_set_source_rgba(cr,
+            THEME_ACCENT.r * (1.0 - severity) + THEME_ERROR.r * severity,
+            THEME_ACCENT.g * (1.0 - severity) + THEME_ERROR.g * severity,
+            THEME_ACCENT.b * (1.0 - severity) + THEME_ERROR.b * severity,
+            0.95);
+        draw_rounded_rect(cr, margin, gauge_margin_top, fill_w, gauge_height, gauge_height / 2.0);
         cairo_fill(cr);
-        cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-        cairo_set_font_size(cr, 12);
-        char range_label[64];
-        snprintf(range_label, sizeof(range_label), "Intervalo %.1f – %.1f °C", min_temp, max_temp);
-        cairo_text_extents_t range_ext;
-        cairo_text_extents(cr, range_label, &range_ext);
-        cairo_move_to(cr, badge_x + (badge_width - range_ext.width) / 2.0, badge_y + badge_height - 9);
-        cairo_show_text(cr, range_label);
-
-        // Draw list rows
-        for (int i = 0; i < sensor_count; ++i) {
-            double row_y = content_top + i * (row_height + row_spacing);
-            if (row_y > h - row_height) break;
-            cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.75);
-            draw_rounded_rect(cr, margin, row_y, row_width, row_height, 10.0);
-            cairo_fill(cr);
-
-            // Label
-            cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-            cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, 12);
-            const char *label = labels[i] ? labels[i] : "Núcleo";
-            cairo_move_to(cr, margin + 14, row_y + row_height / 2.0 + 4);
-            cairo_show_text(cr, label);
-
-            // Bar gauge
-            double bar_x = margin + 150;
-            double bar_w = row_width - 220;
-            if (bar_w < 50) bar_w = 50;
-            double bar_h = row_height - 16;
-            double bar_y = row_y + 8;
-            cairo_set_source_rgba(cr, THEME_BG_SECONDARY.r, THEME_BG_SECONDARY.g, THEME_BG_SECONDARY.b, 0.9);
-            draw_rounded_rect(cr, bar_x, bar_y, bar_w, bar_h, bar_h / 2.0);
-            cairo_fill(cr);
-
-            double normalized = (temps[i] - 25.0) / 80.0;
-            if (normalized < 0.0) normalized = 0.0;
-            if (normalized > 1.0) normalized = 1.0;
-            double severity = (temps[i] - 60.0) / 35.0;
-            if (severity < 0.0) severity = 0.0;
-            if (severity > 1.0) severity = 1.0;
-            double fill_w = bar_w * normalized;
-            if (fill_w > 2.0) {
-                cairo_set_source_rgba(cr,
-                    THEME_ACCENT.r * (1.0 - severity) + THEME_ERROR.r * severity,
-                    THEME_ACCENT.g * (1.0 - severity) + THEME_ERROR.g * severity,
-                    THEME_ACCENT.b * (1.0 - severity) + THEME_ERROR.b * severity,
-                    0.95);
-                draw_rounded_rect(cr, bar_x, bar_y, fill_w, bar_h, bar_h / 2.0);
-                cairo_fill(cr);
-            }
-
-            // Temperature value
-            cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-            cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, 13);
-            char temp_label[32];
-            snprintf(temp_label, sizeof(temp_label), "%.1f °C", temps[i]);
-            cairo_text_extents_t temp_ext;
-            cairo_text_extents(cr, temp_label, &temp_ext);
-            cairo_move_to(cr, margin + row_width - temp_ext.width - 18, row_y + row_height / 2.0 + 4);
-            cairo_show_text(cr, temp_label);
-        }
     }
-    g_free(temps);
 
-    if (labels) {
-        for (int i = 0; i < sensor_count; ++i) {
-            g_free(labels[i]);
-        }
-        g_free(labels);
-    }
-    g_free(temps);
+    // Temperature text
+    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 48);
+    char temp_label[32];
+    snprintf(temp_label, sizeof(temp_label), "%.1f °C", current_temp);
+    cairo_text_extents_t temp_ext;
+    cairo_text_extents(cr, temp_label, &temp_ext);
+    cairo_move_to(cr, margin + (gauge_width - temp_ext.width) / 2.0, gauge_margin_top + gauge_height + 60.0);
+    cairo_show_text(cr, temp_label);
+
+    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
+    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 14);
+    const char *status = (severity < 0.33) ? "Temperatura nominal" : (severity < 0.66 ? "Aquecimento moderado" : "Risco térmico");
+    cairo_text_extents_t status_ext;
+    cairo_text_extents(cr, status, &status_ext);
+    cairo_move_to(cr, margin + (gauge_width - status_ext.width) / 2.0, gauge_margin_top + gauge_height + 85.0);
+    cairo_show_text(cr, status);
 
     return FALSE;
 }
