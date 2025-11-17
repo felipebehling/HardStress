@@ -176,6 +176,11 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
     if (atomic_load(&app->running)) {
         atomic_store(&app->running, 0);
     }
+
+    if (app->status_tick_id > 0) {
+        g_source_remove(app->status_tick_id);
+        app->status_tick_id = 0;
+    }
     g_mutex_lock(&app->temp_mutex);
     if (app->core_temp_labels) {
         for (int i = 0; i < app->core_temp_count; ++i) {
@@ -637,7 +642,7 @@ GtkWidget* create_main_window(AppContext *app) {
     g_signal_connect(app->iters_drawing, "draw", G_CALLBACK(on_draw_iters), app);
 
     // Timer to update the status label
-    g_timeout_add(1000, ui_tick, app);
+    app->status_tick_id = g_timeout_add(1000, ui_tick, app);
 
     return win;
 }
