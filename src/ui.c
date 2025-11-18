@@ -27,7 +27,7 @@ static const rgba_t THEME_TEXT_SECONDARY = {0.627, 0.627, 0.627, 1.0}; // #a0a0a
 static const rgba_t THEME_GRID = {0.235, 0.235, 0.314, 0.5};            // Subtle grid
 
 /* --- Static Function Prototypes --- */
-static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_draw_system_graph(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static void on_btn_start_clicked(GtkButton *b, gpointer ud);
 static void on_btn_stop_clicked(GtkButton *b, gpointer ud);
