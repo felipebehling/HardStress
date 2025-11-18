@@ -25,42 +25,42 @@ typedef struct { unsigned long long user,nice,system,idle,iowait,irq,softirq,ste
 #include <cairo.h>
 
 /** @file hardstress.h
- *  @brief Central header file for the HardStress utility.
+ *  @brief Arquivo de cabeçalho central para o utilitário HardStress.
  *
- *  This file defines the core data structures, constants, and function prototypes
- *  used throughout the application. It includes platform-specific headers,
- *  defines a cross-platform thread abstraction layer, and declares the main
- *  `AppContext` struct that encapsulates the application's state.
+ *  Este arquivo define as estruturas de dados principais, constantes e protótipos de funções
+ *  usados em toda a aplicação. Inclui cabeçalhos específicos da plataforma,
+ *  define uma camada de abstração de thread multiplataforma e declara a struct
+ *  principal `AppContext` que encapsula o estado da aplicação.
  */
 
-/* --- CONFIGURATION CONSTANTS --- */
-#define DEFAULT_MEM_MIB 256             ///< Default memory to allocate per worker thread in MiB.
-#define DEFAULT_DURATION_SEC 300        ///< Default stress test duration in seconds (5 minutes).
-#define CPU_SAMPLE_INTERVAL_MS 1000     ///< Interval for sampling CPU usage and temperature in milliseconds.
-#define HISTORY_SAMPLES 240             ///< Number of historical data points to store for performance graphs.
-#define CPU_HISTORY_SAMPLES 60          ///< Number of samples kept for the CPU usage history graph.
-#define ITER_SCALE 1000.0               ///< Divisor for scaling iteration counts for display.
-#define TEMP_UNAVAILABLE -274.0         ///< Sentinel value indicating that temperature data is not available.
+/* --- CONSTANTES DE CONFIGURAÇÃO --- */
+#define DEFAULT_MEM_MIB 256             ///< Memória padrão a ser alocada por thread de trabalho em MiB.
+#define DEFAULT_DURATION_SEC 300        ///< Duração padrão do teste de estresse em segundos (5 minutos).
+#define CPU_SAMPLE_INTERVAL_MS 1000     ///< Intervalo para amostragem de uso de CPU e temperatura em milissegundos.
+#define HISTORY_SAMPLES 240             ///< Número de pontos de dados históricos a serem armazenados para gráficos de desempenho.
+#define CPU_HISTORY_SAMPLES 60          ///< Número de amostras mantidas para o gráfico de histórico de uso da CPU.
+#define ITER_SCALE 1000.0               ///< Divisor para escalar contagens de iteração para exibição.
+#define TEMP_UNAVAILABLE -274.0         ///< Valor sentinela que indica que os dados de temperatura não estão disponíveis.
 
-/* --- THEME --- */
+/* --- TEMA --- */
 /** @struct color_t
- *  @brief Represents an RGB color for use in the Cairo-drawn UI.
+ *  @brief Representa uma cor RGB para uso na UI desenhada com Cairo.
  */
 typedef struct { double r, g, b; } color_t;
-extern const color_t COLOR_BG, COLOR_FG, COLOR_WARN, COLOR_ERR, COLOR_TEXT, COLOR_TEMP; ///< Global color constants.
+extern const color_t COLOR_BG, COLOR_FG, COLOR_WARN, COLOR_ERR, COLOR_TEXT, COLOR_TEMP; ///< Constantes de cor globais.
 
-/* --- THREAD ABSTRACTION --- */
+/* --- ABSTRAÇÃO DE THREAD --- */
 #ifdef _WIN32
-typedef HANDLE thread_handle_t;         ///< Type definition for a thread handle (Windows).
-#define THREAD_CALL __stdcall            ///< Calling convention for Windows thread entry points.
-typedef unsigned thread_return_t;       ///< Return type for thread entry points (Windows).
+typedef HANDLE thread_handle_t;         ///< Definição de tipo para um handle de thread (Windows).
+#define THREAD_CALL __stdcall            ///< Convenção de chamada para pontos de entrada de thread do Windows.
+typedef unsigned thread_return_t;       ///< Tipo de retorno para pontos de entrada de thread (Windows).
 #else
-typedef pthread_t thread_handle_t;      ///< Type definition for a thread handle (POSIX).
-#define THREAD_CALL                      ///< Calling convention macro expands to nothing on POSIX.
-typedef void * thread_return_t;         ///< Return type for thread entry points (POSIX).
+typedef pthread_t thread_handle_t;      ///< Definição de tipo para um handle de thread (POSIX).
+#define THREAD_CALL                      ///< Macro de convenção de chamada que se expande para nada no POSIX.
+typedef void * thread_return_t;         ///< Tipo de retorno para pontos de entrada de thread (POSIX).
 #endif
 
-typedef thread_return_t (THREAD_CALL *thread_func_t)(void *); ///< Type definition for a thread function (cross-platform).
+typedef thread_return_t (THREAD_CALL *thread_func_t)(void *); ///< Definição de tipo para uma função de thread (multiplataforma).
 
 
 /* --- FORWARD DECLARATIONS --- */
@@ -70,105 +70,105 @@ typedef struct worker_t worker_t;
 /* --- WORKER --- */
 /**
  * @enum worker_status_t
- * @brief Represents the status of a worker thread.
+ * @brief Representa o status de uma thread de trabalho.
  */
 typedef enum {
-    WORKER_OK = 0,          ///< Worker is operating normally.
-    WORKER_ALLOC_FAIL       ///< Worker failed to allocate its memory buffer.
+    WORKER_OK = 0,          ///< O worker está operando normalmente.
+    WORKER_ALLOC_FAIL       ///< O worker falhou em alocar seu buffer de memória.
 } worker_status_t;
 
 /**
  * @struct worker_t
- * @brief Encapsulates the state and resources for a single stress-testing worker thread.
+ * @brief Encapsula o estado e os recursos para uma única thread de trabalho de teste de estresse.
  */
 struct worker_t {
-    int tid;                ///< Thread ID (0 to N-1).
-    size_t buf_bytes;       ///< Size of the memory buffer to allocate, in bytes.
-    uint8_t *buf;           ///< Pointer to the allocated memory buffer for memory access patterns.
-    uint32_t *idx;          ///< Array of indices for randomized memory access.
-    size_t idx_len;         ///< Number of elements in the `idx` array.
-    atomic_int running;     ///< Flag to signal the thread to continue running or terminate.
-    atomic_uint iters;      ///< Counter for the number of iterations completed.
-    atomic_int status;      ///< The status of the worker (e.g., `WORKER_OK`).
-    AppContext *app;        ///< A pointer back to the main application context.
+    int tid;                ///< ID da thread (0 a N-1).
+    size_t buf_bytes;       ///< Tamanho do buffer de memória a ser alocado, em bytes.
+    uint8_t *buf;           ///< Ponteiro para o buffer de memória alocado para padrões de acesso à memória.
+    uint32_t *idx;          ///< Array de índices para acesso aleatório à memória.
+    size_t idx_len;         ///< Número de elementos no array `idx`.
+    atomic_int running;     ///< Flag para sinalizar à thread para continuar executando ou terminar.
+    atomic_uint iters;      ///< Contador para o número de iterações concluídas.
+    atomic_int status;      ///< O status do worker (por exemplo, `WORKER_OK`).
+    AppContext *app;        ///< Um ponteiro de volta para o contexto principal da aplicação.
 };
 
-/* --- APP CONTEXT --- */
+/* --- CONTEXTO DA APLICAÇÃO --- */
 /**
  * @struct AppContext
- * @brief Encapsulates the entire state of the HardStress application.
+ * @brief Encapsula todo o estado da aplicação HardStress.
  *
- * This structure holds all configuration, real-time state, thread management
- * resources, data buffers, and GUI widgets for the application. Passing a pointer
- * to this struct avoids the use of global variables.
+ * Esta estrutura contém toda a configuração, estado em tempo real, recursos de gerenciamento de threads,
+ * buffers de dados e widgets da GUI para a aplicação. Passar um ponteiro para esta struct
+ * evita o uso de variáveis globais.
  */
 struct AppContext {
-    /* --- Configuration (set from UI) --- */
-    int threads;                    ///< Number of worker threads to spawn.
-    size_t mem_mib_per_thread;      ///< Memory to allocate per thread (in MiB).
-    int duration_sec;               ///< Total test duration in seconds (0 for indefinite).
-    int pin_affinity;               ///< Boolean flag to enable CPU core pinning.
-    int kernel_fpu_en;              ///< Boolean flag to enable the FPU stress kernel.
-    int kernel_int_en;              ///< Boolean flag to enable the integer stress kernel.
-    int kernel_stream_en;           ///< Boolean flag to enable the memory streaming kernel.
-    int kernel_ptr_en;              ///< Boolean flag to enable the pointer-chasing kernel.
+    /* --- Configuração (definida a partir da UI) --- */
+    int threads;                    ///< Número de threads de trabalho a serem geradas.
+    size_t mem_mib_per_thread;      ///< Memória a ser alocada por thread (em MiB).
+    int duration_sec;               ///< Duração total do teste em segundos (0 para indefinido).
+    int pin_affinity;               ///< Flag booleana para habilitar a fixação de núcleos de CPU.
+    int kernel_fpu_en;              ///< Flag booleana para habilitar o kernel de estresse de FPU.
+    int kernel_int_en;              ///< Flag booleana para habilitar o kernel de estresse de inteiros.
+    int kernel_stream_en;           ///< Flag booleana para habilitar o kernel de streaming de memória.
+    int kernel_ptr_en;              ///< Flag booleana para habilitar o kernel de perseguição de ponteiro.
 
-    /* --- Runtime State --- */
-    atomic_int running;             ///< Flag indicating if a stress test is currently active.
-    atomic_int errors;              ///< Counter for errors encountered during the test.
-    atomic_uint total_iters;        ///< Aggregated iteration count across all threads.
-    double start_time;              ///< Timestamp (from `now_sec`) when the test started.
+    /* --- Estado de Tempo de Execução --- */
+    atomic_int running;             ///< Flag que indica se um teste de estresse está atualmente ativo.
+    atomic_int errors;              ///< Contador de erros encontrados durante o teste.
+    atomic_uint total_iters;        ///< Contagem de iterações agregadas em todas as threads.
+    double start_time;              ///< Timestamp (de `now_sec`) quando o teste começou.
 
     /* --- Workers & Threads --- */
-    worker_t *workers;              ///< Array of worker thread contexts.
-    thread_handle_t *worker_threads;///< Array of handles for the worker threads.
-    thread_handle_t cpu_sampler_thread; ///< Handle for the metrics sampler thread.
-    thread_handle_t controller_thread;  ///< Handle for the main test controller thread.
+    worker_t *workers;              ///< Array de contextos de thread de trabalho.
+    thread_handle_t *worker_threads;///< Array de handles para as threads de trabalho.
+    thread_handle_t cpu_sampler_thread; ///< Handle para a thread de amostragem de métricas.
+    thread_handle_t controller_thread;  ///< Handle para a thread controladora de teste principal.
 
-    /* --- CPU Usage Monitoring --- */
-    int cpu_count;                  ///< Number of logical CPU cores detected.
-    double *cpu_usage;              ///< Array to store the utilization of each CPU core (0.0 to 1.0).
-    GMutex cpu_mutex;               ///< Mutex to protect access to the `cpu_usage` array.
+    /* --- Monitoramento de Uso da CPU --- */
+    int cpu_count;                  ///< Número de núcleos de CPU lógicos detectados.
+    double *cpu_usage;              ///< Array para armazenar a utilização de cada núcleo de CPU (0.0 a 1.0).
+    GMutex cpu_mutex;               ///< Mutex para proteger o acesso ao array `cpu_usage`.
 #ifdef _WIN32
-    /* --- Windows-specific handles for performance monitoring --- */
-    PDH_HQUERY pdh_query;           ///< A query handle for the Performance Data Helper (PDH) library.
-    PDH_HCOUNTER *pdh_counters;     ///< An array of counter handles for individual CPU cores.
-    IWbemServices *pSvc;            ///< A pointer to the WMI services for temperature querying.
-    IWbemLocator *pLoc;             ///< A pointer to the WMI locator for connecting to WMI.
+    /* --- Handles específicos do Windows para monitoramento de desempenho --- */
+    PDH_HQUERY pdh_query;           ///< Um handle de consulta para a biblioteca Performance Data Helper (PDH).
+    PDH_HCOUNTER *pdh_counters;     ///< Um array de handles de contador para núcleos de CPU individuais.
+    IWbemServices *pSvc;            ///< Um ponteiro para os serviços WMI para consulta de temperatura.
+    IWbemLocator *pLoc;             ///< Um ponteiro para o localizador WMI para conexão ao WMI.
 #else
-    cpu_sample_t *prev_cpu_samples; ///< A buffer to store the previous CPU sample for calculating usage delta.
-    cpu_sample_t *curr_cpu_samples; ///< Scratch buffer reused for the most recent CPU sample.
+    cpu_sample_t *prev_cpu_samples; ///< Um buffer para armazenar a amostra de CPU anterior para calcular o delta de uso.
+    cpu_sample_t *curr_cpu_samples; ///< Buffer de rascunho reutilizado para a amostra de CPU mais recente.
 #endif
-    double **cpu_history;           ///< Circular history buffer storing per-core CPU usage samples.
-    int cpu_history_pos;            ///< Index of the most recent entry in the CPU history buffer.
-    int cpu_history_len;            ///< Total capacity of the CPU history buffer.
-    int cpu_history_filled;         ///< Number of valid samples currently stored in the history buffer.
+    double **cpu_history;           ///< Buffer de histórico circular que armazena amostras de uso de CPU por núcleo.
+    int cpu_history_pos;            ///< Índice da entrada mais recente no buffer de histórico da CPU.
+    int cpu_history_len;            ///< Capacidade total do buffer de histórico da CPU.
+    int cpu_history_filled;         ///< Número de amostras válidas atualmente armazenadas no buffer de histórico.
 
-    /* --- Per-Thread Performance History --- */
-    unsigned **thread_history;      ///< A 2D circular buffer for storing per-thread iteration history.
-    int history_pos;                ///< The current write position in the circular buffer.
-    int history_len;                ///< The number of valid samples currently in the buffer.
-    GMutex history_mutex;           ///< Mutex to protect access to the history buffer.
+    /* --- Histórico de Desempenho por Thread --- */
+    unsigned **thread_history;      ///< Um buffer circular 2D para armazenar o histórico de iterações por thread.
+    int history_pos;                ///< A posição de escrita atual no buffer circular.
+    int history_len;                ///< O número de amostras válidas atualmente no buffer.
+    GMutex history_mutex;           ///< Mutex para proteger o acesso ao buffer de histórico.
 
-    /* --- Temperature Monitoring --- */
-    double temp_celsius;            ///< The last measured CPU temperature in degrees Celsius.
-    GMutex temp_mutex;              ///< Mutex to protect access to `temp_celsius`.
-    char **core_temp_labels;        ///< Display labels for each physical core temperature sensor.
-    double *core_temps;             ///< Cached temperature readings for physical cores.
-    int core_temp_count;            ///< Number of valid entries in `core_temp_labels/core_temps`.
+    /* --- Monitoramento de Temperatura --- */
+    double temp_celsius;            ///< A última temperatura da CPU medida em graus Celsius.
+    GMutex temp_mutex;              ///< Mutex para proteger o acesso a `temp_celsius`.
+    char **core_temp_labels;        ///< Rótulos de exibição para cada sensor de temperatura de núcleo físico.
+    double *core_temps;             ///< Leituras de temperatura em cache para núcleos físicos.
+    int core_temp_count;            ///< Número de entradas válidas em `core_temp_labels/core_temps`.
 
-    /* --- GUI Widgets --- */
-    GtkWidget *win;                 ///< The main application window.
-    GtkWidget *entry_threads, *entry_dur; ///< Input fields for test parameters.
-    GtkWidget *check_pin;           ///< Checkbox for enabling CPU pinning.
-    GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes for stress kernels.
-    GtkWidget *btn_start, *btn_stop, *btn_defaults, *btn_clear_log; ///< Control buttons.
-    GtkTextBuffer *log_buffer;      ///< Text buffer for the event log panel.
-    GtkWidget *log_view;            ///< Text view widget for the event log.
-    GtkWidget *cpu_drawing;         ///< Drawing area for the per-core CPU utilization graph.
-    GtkWidget *iters_drawing;       ///< Drawing area for the per-thread performance history graph.
-    GtkWidget *status_label;        ///< Label for displaying the current application status.
-    guint status_tick_id;           ///< Source ID for the periodic status label update timer.
+    /* --- Widgets da GUI --- */
+    GtkWidget *win;                 ///< A janela principal da aplicação.
+    GtkWidget *entry_threads, *entry_dur; ///< Campos de entrada para parâmetros de teste.
+    GtkWidget *check_pin;           ///< Checkbox para habilitar a fixação de CPU.
+    GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes para kernels de estresse.
+    GtkWidget *btn_start, *btn_stop, *btn_defaults, *btn_clear_log; ///< Botões de controle.
+    GtkTextBuffer *log_buffer;      ///< Buffer de texto para o painel de log de eventos.
+    GtkWidget *log_view;            ///< Widget de visualização de texto para o log de eventos.
+    GtkWidget *cpu_drawing;         ///< Área de desenho para o gráfico de utilização de CPU por núcleo.
+    GtkWidget *iters_drawing;       ///< Área de desenho para o gráfico de histórico de desempenho por thread.
+    GtkWidget *status_label;        ///< Rótulo para exibir o status atual da aplicação.
+    guint status_tick_id;           ///< ID da fonte para o temporizador de atualização periódica do rótulo de status.
 };
 
 /* --- FUNCTION PROTOTYPES --- */

@@ -3,92 +3,92 @@
 
 /**
  * @file utils.h
- * @brief Provides utility functions and a cross-platform thread abstraction layer.
+ * @brief Fornece funções utilitárias e uma camada de abstração de thread multiplataforma.
  *
- * This file declares various helper functions for timekeeping, random number
- * generation, and system information querying. It also defines a wrapper around
- * pthreads and the Win32 API to provide a consistent interface for thread
- * management across different operating systems.
+ * Este arquivo declara várias funções auxiliares para medição de tempo, geração de números aleatórios
+ * e consulta de informações do sistema. Também define um wrapper em torno de
+ * pthreads e da API Win32 para fornecer uma interface consistente para o gerenciamento de threads
+ * em diferentes sistemas operacionais.
  */
 
 #include "hardstress.h"
 
 /**
- * @brief Gets the current time as a high-resolution timestamp in seconds.
+ * @brief Obtém o tempo atual como um timestamp de alta resolução em segundos.
  *
- * This function uses a monotonic clock to provide a steady, high-precision
- * time measurement that is not affected by system time changes.
+ * Esta função usa um relógio monotônico para fornecer uma medição de tempo estável e de alta precisão
+ * que não é afetada por mudanças no tempo do sistema.
  *
- * @return The current time in seconds, with microsecond or better precision.
+ * @return O tempo atual em segundos, com precisão de microssegundo ou melhor.
  */
 double now_sec(void);
 
 /**
- * @brief A fast, high-quality 64-bit pseudo-random number generator (PRNG).
+ * @brief Um gerador de números pseudoaleatórios (PRNG) de 64 bits rápido e de alta qualidade.
  *
- * This implements the `splitmix64` algorithm, which is known for its speed
- * and good statistical properties. It's used as the seeding mechanism for
- * other operations.
+ * Implementa o algoritmo `splitmix64`, conhecido por sua velocidade
+ * e boas propriedades estatísticas. É usado como mecanismo de semente para
+ * outras operações.
  *
- * @param x A pointer to the 64-bit state variable for the PRNG. This state
- *          is updated on each call.
- * @return The next 64-bit pseudo-random number in the sequence.
+ * @param x Um ponteiro para a variável de estado de 64 bits para o PRNG. Este estado
+ *          é atualizado a cada chamada.
+ * @return O próximo número pseudoaleatório de 64 bits na sequência.
  */
 uint64_t splitmix64(uint64_t *x);
 
 /**
- * @brief Shuffles an array of 32-bit integers using the Fisher-Yates algorithm.
+ * @brief Embaralha um array de inteiros de 32 bits usando o algoritmo de Fisher-Yates.
  *
- * This function performs an in-place shuffle of the given array, ensuring
- * a uniform random permutation of its elements.
+ * Esta função realiza um embaralhamento in-place do array fornecido, garantindo
+ * uma permutação aleatória uniforme de seus elementos.
  *
- * @param a The array of 32-bit integers to shuffle.
- * @param n The number of elements in the array.
- * @param seed A pointer to the 64-bit seed state used by the `splitmix64` PRNG.
+ * @param a O array de inteiros de 32 bits a ser embaralhado.
+ * @param n O número de elementos no array.
+ * @param seed Um ponteiro para o estado da semente de 64 bits usado pelo PRNG `splitmix64`.
  */
 void shuffle32(uint32_t *a, size_t n, uint64_t *seed);
 
 /**
- * @brief Retrieves the total amount of physical RAM on the system.
+ * @brief Recupera a quantidade total de RAM física no sistema.
  *
- * This function is cross-platform, using `/proc/meminfo` on Linux and
- * `GlobalMemoryStatusEx` on Windows.
+ * Esta função é multiplataforma, usando `/proc/meminfo` no Linux e
+ * `GlobalMemoryStatusEx` no Windows.
  *
- * @return The total physical memory in bytes. Returns 0 on failure.
+ * @return A memória física total em bytes. Retorna 0 em caso de falha.
  */
 unsigned long long get_total_system_memory(void);
 
 /**
- * @brief Creates a new thread (cross-platform).
+ * @brief Cria uma nova thread (multiplataforma).
  *
- * This is a wrapper around `pthread_create` (POSIX) and `_beginthreadex` (Windows).
+ * Este é um wrapper em torno de `pthread_create` (POSIX) e `_beginthreadex` (Windows).
  *
- * @param t Pointer to a `thread_handle_t` where the new thread's handle will be stored.
- * @param func The function the new thread will execute.
- * @param arg The argument to pass to the thread function.
- * @return 0 on success, non-zero on failure.
+ * @param t Ponteiro para um `thread_handle_t` onde o handle da nova thread será armazenado.
+ * @param func A função que a nova thread executará.
+ * @param arg O argumento a ser passado para a função da thread.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
  */
 int thread_create(thread_handle_t *t, thread_func_t func, void *arg);
 
 /**
- * @brief Waits for a specific thread to terminate and cleans up its resources (cross-platform).
+ * @brief Aguarda a finalização de uma thread específica e limpa seus recursos (multiplataforma).
  *
- * This is a wrapper around `pthread_join` (POSIX) and `WaitForSingleObject` / `CloseHandle` (Windows).
+ * Este é um wrapper em torno de `pthread_join` (POSIX) e `WaitForSingleObject` / `CloseHandle` (Windows).
  *
- * @param t The handle of the thread to join.
- * @return 0 on success, non-zero on failure.
+ * @param t O handle da thread a ser aguardada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
  */
 int thread_join(thread_handle_t t);
 
 /**
- * @brief Detaches a thread, allowing it to run independently and have its resources freed on termination (cross-platform).
+ * @brief Desanexa uma thread, permitindo que ela execute de forma independente e tenha seus recursos liberados na finalização (multiplataforma).
  *
- * This is a wrapper around `pthread_detach` (POSIX) and `CloseHandle` (Windows).
- * Note: On Windows, detaching simply closes the handle, allowing the thread to run,
- * but the OS manages resource cleanup.
+ * Este é um wrapper em torno de `pthread_detach` (POSIX) e `CloseHandle` (Windows).
+ * Nota: No Windows, desanexar simplesmente fecha o handle, permitindo que a thread continue a ser executada,
+ * mas o SO gerencia a limpeza dos recursos.
  *
- * @param t The handle of the thread to detach.
- * @return 0 on success, non-zero on failure.
+ * @param t O handle da thread a ser desanexada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
  */
 int thread_detach(thread_handle_t t);
 

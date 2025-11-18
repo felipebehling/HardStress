@@ -3,28 +3,28 @@
 
 /**
  * @file core.h
- * @brief Declares the core stress-testing logic.
+ * @brief Declara a lógica principal de teste de estresse.
  *
- * This file contains the declaration for the main controller thread function,
- * which is the entry point for starting and managing a stress test session.
+ * Este arquivo contém a declaração da função da thread controladora principal,
+ * que é o ponto de entrada para iniciar e gerenciar uma sessão de teste de estresse.
  */
 
 #include "hardstress.h"
 
 /**
- * @brief The main function for the test controller thread.
+ * @brief A função principal da thread controladora de teste.
  *
- * This function orchestrates the entire lifecycle of a stress test. It is
- * launched in a separate thread when the user clicks "Start". Its
- * responsibilities include:
- * - Initializing application state for the test.
- * - Allocating resources (memory for workers, history buffers, etc.).
- * - Creating and launching the worker threads and the metrics sampler thread.
- * - Pinning worker threads to CPU cores if requested.
- * - Monitoring the test duration and stopping the test when complete.
- * - Cleaning up all resources and signaling the UI when the test is finished.
+ * Esta função orquestra todo o ciclo de vida de um teste de estresse. É
+ * iniciada em uma thread separada quando o usuário clica em "Iniciar". Suas
+ * responsabilidades incluem:
+ * - Inicializar o estado da aplicação para o teste.
+ * - Alocar recursos (memória para workers, buffers de histórico, etc.).
+ * - Criar e iniciar as threads de trabalho e a thread de amostragem de métricas.
+ * - Fixar as threads de trabalho aos núcleos da CPU, se solicitado.
+ * - Monitorar a duração do teste e pará-lo quando concluído.
+ * - Limpar todos os recursos e sinalizar a UI quando o teste terminar.
  *
- * @param arg A pointer to the global `AppContext` structure.
+ * @param arg Um ponteiro para a estrutura global `AppContext`.
  */
 thread_return_t THREAD_CALL controller_thread_func(void *arg);
 
