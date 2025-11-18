@@ -671,6 +671,18 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_container_add(GTK_CONTAINER(iters_frame), app->iters_drawing);
     gtk_box_pack_start(GTK_BOX(main_area), iters_frame, FALSE, FALSE, 0);
 
+    // Heatmap Legend
+    GtkWidget *heatmap_legend = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(heatmap_legend),
+        "<b>Como ler o Heatmap:</b>\n"
+        "• <b>Eixo Vertical (Y):</b> Cada linha representa uma thread de trabalho individual (T0, T1, etc.).\n"
+        "• <b>Eixo Horizontal (X):</b> Representa o tempo, com os dados mais recentes sendo exibidos à direita.\n"
+        "• <b>Cores:</b> A cor de cada célula indica a intensidade da atividade (iterações por segundo). Cores mais quentes (amarelo, vermelho) significam maior desempenho, enquanto cores frias (azul) indicam menor atividade.");
+    gtk_label_set_xalign(GTK_LABEL(heatmap_legend), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(heatmap_legend), TRUE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(heatmap_legend), "legend-label");
+    gtk_box_pack_start(GTK_BOX(main_area), heatmap_legend, FALSE, FALSE, 0);
+
     // System Log
     GtkWidget *log_frame = gtk_frame_new("System Log");
     GtkWidget *log_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
