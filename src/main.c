@@ -49,6 +49,7 @@ int main(int argc, char **argv){
     g_mutex_init(&app->cpu_mutex);
     g_mutex_init(&app->history_mutex);
     g_mutex_init(&app->temp_mutex);
+    g_mutex_init(&app->system_history_mutex);
     
     // Set default configuration
     app->mem_mib_per_thread = DEFAULT_MEM_MIB;
@@ -56,6 +57,20 @@ int main(int argc, char **argv){
     app->pin_affinity = 1;
     app->history_len = HISTORY_SAMPLES;
     app->temp_celsius = TEMP_UNAVAILABLE;
+    app->temp_visibility_state = -1; // -1 = unknown
+
+    // Allocate and initialize system metrics history buffers
+    app->system_history_len = CPU_HISTORY_SAMPLES;
+    app->temp_history = calloc(app->system_history_len, sizeof(double));
+    app->avg_cpu_history = calloc(app->system_history_len, sizeof(double));
+    if (!app->temp_history || !app->avg_cpu_history) {
+        fprintf(stderr, "Failed to allocate system history buffers. Exiting.\n");
+        // Perform cleanup before exiting
+        free(app->temp_history);
+        free(app->avg_cpu_history);
+        free(app);
+        return 1;
+    }
 
     // Create the main window
     app->win = create_main_window(app);

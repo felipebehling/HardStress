@@ -46,5 +46,12 @@ void gui_log(AppContext *app, const char *fmt, ...);
  */
 gboolean gui_update_stopped(gpointer ud);
 
+/**
+ * @brief Thread-safe UI update to show or hide the temperature monitor panel.
+ * @param app The application context.
+ * @param visible TRUE to show the panel, FALSE to hide it.
+ */
+void gui_set_temp_panel_visibility(AppContext *app, gboolean visible);
+
 
 #endif // UI_H

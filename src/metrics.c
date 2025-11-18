@@ -57,6 +57,35 @@ thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg){
         // Request the UI thread to redraw the graph widgets
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->cpu_drawing);
         g_idle_add((GSourceFunc)gtk_widget_queue_draw, app->iters_drawing);
+
+        // --- Update System-wide Metrics History ---
+        if (app->temp_history && app->avg_cpu_history && app->system_history_len > 0) {
+            // Advance circular buffer position
+            app->system_history_pos = (app->system_history_pos + 1) % app->system_history_len;
+
+            // Store current temperature
+            g_mutex_lock(&app->temp_mutex);
+            app->temp_history[app->system_history_pos] = app->temp_celsius;
+            g_mutex_unlock(&app->temp_mutex);
+
+            // Calculate and store average CPU usage
+            double total_usage = 0.0;
+            if (app->cpu_count > 0) {
+                g_mutex_lock(&app->cpu_mutex);
+                for (int c = 0; c < app->cpu_count; c++) {
+                    total_usage += app->cpu_usage[c];
+                }
+                g_mutex_unlock(&app->cpu_mutex);
+                app->avg_cpu_history[app->system_history_pos] = total_usage / app->cpu_count;
+            } else {
+                app->avg_cpu_history[app->system_history_pos] = 0.0;
+            }
+
+            // Increment filled count until buffer is full
+            if (app->system_history_filled < app->system_history_len) {
+                app->system_history_filled++;
+            }
+        }
         
         // Advance the circular buffer for the performance history graph
         g_mutex_lock(&app->history_mutex);
@@ -112,6 +141,12 @@ static void update_temp_cache(AppContext *app, char **labels, double *values, in
     } else {
         app->temp_celsius = fallback;
     }
+
+    // After updating the temperature, check if the visibility of the UI panel
+    // needs to be changed.
+    gboolean is_available = (app->temp_celsius > TEMP_UNAVAILABLE);
+    gui_set_temp_panel_visibility(app, is_available);
+
     g_mutex_unlock(&app->temp_mutex);
 }
 
