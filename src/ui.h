@@ -3,47 +3,46 @@
 
 /**
  * @file ui.h
- * @brief Declares functions related to the GTK-based Graphical User Interface.
+ * @brief Declara funções relacionadas à Interface Gráfica do Usuário baseada em GTK.
  *
- * This module is responsible for creating, managing, and updating all GUI
- * elements, including the main window, graphs, input fields, and event log.
- * It also handles user interactions and triggers the core application logic.
+ * Este módulo é responsável por criar, gerenciar e atualizar todos os elementos da GUI,
+ * incluindo a janela principal, gráficos, campos de entrada e log de eventos.
+ * Também lida com interações do usuário e aciona a lógica principal da aplicação.
  */
 
 #include "hardstress.h"
 
 /**
- * @brief Creates and initializes the main GTK window and all its widgets.
+ * @brief Cria e inicializa a janela principal do GTK e todos os seus widgets.
  *
- * This function builds the entire user interface, connecting signals for
- * buttons and other interactive elements to their respective callback handlers.
+ * Esta função constrói toda a interface do usuário, conectando sinais para
+ * botões e outros elementos interativos aos seus respectivos manipuladores de callback.
  *
- * @param app A pointer to the global `AppContext` structure.
- * @return A pointer to the newly created `GtkWindow`.
+ * @param app Um ponteiro para a estrutura global `AppContext`.
+ * @return Um ponteiro para a `GtkWindow` recém-criada.
  */
 GtkWidget* create_main_window(AppContext *app);
 
 /**
- * @brief Logs a formatted message to the GUI's event log panel.
+ * @brief Registra uma mensagem formatada no painel de log de eventos da GUI.
  *
- * This function is thread-safe and can be called from any thread to append
- * a timestamped message to the log view in the UI.
+ * Esta função é segura para threads e pode ser chamada de qualquer thread para anexar
+ * uma mensagem com carimbo de data/hora à visualização de log na UI.
  *
- * @param app A pointer to the global `AppContext` structure.
- * @param fmt The `printf`-style format string for the message.
- * @param ... Variable arguments for the format string.
+ * @param app Um ponteiro para a estrutura global `AppContext`.
+ * @param fmt A string de formato no estilo `printf` para a mensagem.
+ * @param ... Argumentos variáveis para a string de formato.
  */
 void gui_log(AppContext *app, const char *fmt, ...);
 
 /**
- * @brief A GSourceFunc to update the GUI after a test has stopped.
+ * @brief Uma GSourceFunc para atualizar a GUI após a parada de um teste.
  *
- * This function is called via `g_idle_add` from the controller thread once
- * a test is complete. It re-enables the configuration controls and updates
- * the status label.
+ * Esta função é chamada via `g_idle_add` da thread controladora assim que um teste
+ * é concluído. Ela reabilita os controles de configuração e atualiza o rótulo de status.
  *
- * @param ud A pointer to the global `AppContext` structure.
- * @return G_SOURCE_REMOVE to ensure the function is only called once.
+ * @param ud Um ponteiro para a estrutura global `AppContext`.
+ * @return G_SOURCE_REMOVE para garantir que a função seja chamada apenas uma vez.
  */
 gboolean gui_update_stopped(gpointer ud);
 

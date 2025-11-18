@@ -61,11 +61,11 @@ static void gui_log_message_free(gpointer data);
 /* --- Implementations --- */
 
 /**
- * @brief Applies the application's CSS theme.
+ * @brief Aplica o tema CSS da aplicação.
  *
- * It tries to load `style.css` from several possible locations to support
- * both development and installed environments.
- * @param window The main application window.
+ * Tenta carregar `style.css` de vários locais possíveis para suportar
+ * tanto ambientes de desenvolvimento quanto instalados.
+ * @param window A janela principal da aplicação.
  */
 static void apply_css_theme(GtkWidget *window) {
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -102,7 +102,7 @@ static void apply_css_theme(GtkWidget *window) {
 }
 
 /**
- * @brief Cairo helper function to draw a rectangle with rounded corners.
+ * @brief Função auxiliar do Cairo para desenhar um retângulo com cantos arredondados.
  */
 static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double h, double r) {
     cairo_new_sub_path(cr);
@@ -114,7 +114,7 @@ static void draw_rounded_rect(cairo_t *cr, double x, double y, double w, double 
 }
 
 /**
- * @brief Cairo helper function to draw a grid background pattern.
+ * @brief Função auxiliar do Cairo para desenhar um padrão de fundo de grade.
  */
 static void G_GNUC_UNUSED draw_grid_background(cairo_t *cr, int width, int height, int spacing) {
     cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, THEME_GRID.a);
@@ -164,10 +164,10 @@ static rgba_t heatmap_color(double normalized) {
 }
 
 /**
- * @brief Callback for the window's "destroy" event.
+ * @brief Callback para o evento "destroy" da janela.
  *
- * This function cleans up all application resources, including mutexes and
- * the main AppContext struct, before quitting the GTK main loop.
+ * Esta função limpa todos os recursos da aplicação, incluindo mutexes e
+ * a struct principal AppContext, antes de sair do loop principal do GTK.
  */
 static void on_window_destroy(GtkWidget *w, gpointer ud) {
     (void)w;
@@ -209,7 +209,7 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
 
 #ifndef TESTING_BUILD
 /**
- * @brief Appends a formatted, timestamped message to the GUI log.
+ * @brief Adiciona uma mensagem formatada e com carimbo de data/hora ao log da GUI.
  */
 void gui_log(AppContext *app, const char *fmt, ...){
     if (!app || !fmt) return;
@@ -280,9 +280,9 @@ static void gui_log_message_free(gpointer data) {
 #endif
 
 /**
- * @brief GSourceFunc to update the GUI when a test starts.
+ * @brief GSourceFunc para atualizar a GUI quando um teste inicia.
  *
- * Called via `g_idle_add` to safely update GTK widgets from the main thread.
+ * Chamado via `g_idle_add` para atualizar com segurança os widgets GTK da thread principal.
  */
 static gboolean gui_update_started(gpointer ud){
     AppContext *app = (AppContext*)ud;
@@ -294,9 +294,9 @@ static gboolean gui_update_started(gpointer ud){
 }
 
 /**
- * @brief GSourceFunc to update the GUI when a test stops.
+ * @brief GSourceFunc para atualizar a GUI quando um teste para.
  *
- * Called via `g_idle_add` to safely update GTK widgets from the main thread.
+ * Chamado via `g_idle_add` para atualizar com segurança os widgets GTK da thread principal.
  */
 gboolean gui_update_stopped(gpointer ud){
     AppContext *app = (AppContext*)ud;
@@ -312,11 +312,11 @@ gboolean gui_update_stopped(gpointer ud){
 }
 
 /**
- * @brief Callback for the "Start" button click event.
+ * @brief Callback para o evento de clique do botão "Iniciar".
  *
- * Parses and validates user input, configures the AppContext, disables
- * configuration controls, and spawns the main controller thread to begin
- * the stress test.
+ * Analisa e valida a entrada do usuário, configura o AppContext, desabilita
+ * os controles de configuração e gera a thread controladora principal para iniciar
+ * o teste de estresse.
  */
 static void on_btn_start_clicked(GtkButton *b, gpointer ud){
     (void)b;
@@ -383,9 +383,9 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
 }
 
 /**
- * @brief Callback for the "Stop" button click event.
+ * @brief Callback para o evento de clique do botão "Parar".
  *
- * Signals the controller thread to terminate the currently running test.
+ * Sinaliza para a thread controladora terminar o teste atualmente em execução.
  */
 static void on_btn_stop_clicked(GtkButton *b, gpointer ud){
     (void)b;
@@ -397,9 +397,9 @@ static void on_btn_stop_clicked(GtkButton *b, gpointer ud){
 }
 
 /**
- * @brief Callback for the "Restore Defaults" button.
+ * @brief Callback para o botão "Restaurar Padrões".
  *
- * Resets all configuration options in the UI to their default values.
+ * Redefine todas as opções de configuração na UI para seus valores padrão.
  */
 static void on_btn_defaults_clicked(GtkButton *b, gpointer ud) {
     (void)b;
@@ -421,7 +421,7 @@ static void on_btn_defaults_clicked(GtkButton *b, gpointer ud) {
 }
 
 /**
- * @brief Callback for the "Clear Log" button.
+ * @brief Callback para o botão "Limpar Log".
  */
 static void on_btn_clear_log_clicked(GtkButton *b, gpointer ud) {
     (void)b;
@@ -442,10 +442,10 @@ static gboolean check_if_stopped_and_close(gpointer user_data) {
 }
 
 /**
- * @brief Callback for the window "delete" (close button) event.
+ * @brief Callback para o evento "delete" da janela (botão de fechar).
  *
- * If a test is running, it signals it to stop before allowing the window
- * to close, preventing an abrupt termination.
+ * Se um teste estiver em execução, ele sinaliza para parar antes de permitir que a janela
+ * feche, evitando uma terminação abrupta.
  */
 static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud){
     (void)e;
@@ -460,10 +460,10 @@ static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud){
 }
 
 /**
- * @brief A timer callback (tick) that runs once per second.
+ * @brief Um callback de timer (tick) que é executado uma vez por segundo.
  *
- * Updates the main status label with real-time performance data like
- * total iterations per second and error count.
+ * Atualiza o rótulo de status principal com dados de desempenho em tempo real, como
+ * total de iterações por segundo e contagem de erros.
  */
 static gboolean ui_tick(gpointer ud){
     AppContext *app = (AppContext*)ud;
@@ -484,7 +484,7 @@ static gboolean ui_tick(gpointer ud){
 }
 
 /**
- * @brief Builds and returns the main application window with all its widgets.
+ * @brief Constrói e retorna a janela principal da aplicação com todos os seus widgets.
  */
 GtkWidget* create_main_window(AppContext *app) {
     GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -671,12 +671,12 @@ GtkWidget* create_main_window(AppContext *app) {
 }
 
 /**
- * @brief Enables or disables the sensitivity of configuration controls.
+ * @brief Ativa ou desativa a sensibilidade dos controles de configuração.
  *
- * This is used to prevent the user from changing settings while a test is
- * running.
- * @param app The application context.
- * @param state `TRUE` to enable controls, `FALSE` to disable.
+ * Isso é usado para impedir que o usuário altere as configurações enquanto um teste
+ * está em execução.
+ * @param app O contexto da aplicação.
+ * @param state `TRUE` para ativar os controles, `FALSE` para desativar.
  */
 static void set_controls_sensitive(AppContext *app, gboolean state){
     gtk_widget_set_sensitive(app->entry_threads, state);
@@ -690,11 +690,11 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
 }
 
 /**
- * @brief Cairo drawing handler for the aggregate CPU temperature gauge.
+ * @brief Manipulador de desenho do Cairo para o medidor de temperatura agregada da CPU.
  *
- * The widget now emphasizes a single, processor-wide temperature reading,
- * rendering it as a wide gauge accompanied by contextual labels so that users
- * can quickly assess thermal headroom during a stress test.
+ * O widget agora enfatiza uma única leitura de temperatura para todo o processador,
+ * renderizando-a como um medidor largo acompanhado de rótulos contextuais para que os usuários
+ * possam avaliar rapidamente a margem térmica durante um teste de estresse.
  */
 static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     AppContext *app = (AppContext*)user_data;
@@ -795,11 +795,11 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
 }
 
 /**
- * @brief Cairo drawing handler for the per-thread performance graph.
+ * @brief Manipulador de desenho do Cairo para o gráfico de desempenho por thread.
  *
- * This function is called whenever the `iters_drawing` widget needs to be
- * repainted. It draws a line chart showing the historical performance
- * (iterations per second) for each worker thread over a sliding time window.
+ * Esta função é chamada sempre que o widget `iters_drawing` precisa ser
+ * redesenhado. Ele desenha um gráfico de linhas mostrando o desempenho histórico
+ * (iterações por segundo) para cada thread de trabalho ao longo de uma janela de tempo deslizante.
  */
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data){
     AppContext *app = (AppContext*)user_data;

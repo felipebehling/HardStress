@@ -3,35 +3,35 @@
 
 /**
  * @file metrics.h
- * @brief Declares functions for collecting system performance metrics.
+ * @brief Declara funções para coletar métricas de desempenho do sistema.
  *
- * This module is responsible for gathering real-time data such as CPU
- * utilization per core, system temperature, and detecting the number of
- * available CPU cores. It provides cross-platform implementations for
- * Linux and Windows.
+ * Este módulo é responsável por coletar dados em tempo real, como
+ * utilização de CPU por núcleo, temperatura do sistema e detectar o número de
+ * núcleos de CPU disponíveis. Oferece implementações multiplataforma para
+ * Linux e Windows.
  */
 
 #include "hardstress.h"
 
 /**
- * @brief The main function for the metrics sampler thread.
+ * @brief A função principal da thread de amostragem de métricas.
  *
- * This thread runs in the background during a stress test, periodically
- * sampling CPU utilization and temperature. After collecting the data, it
- * triggers a redraw of the relevant GUI graphs to provide real-time feedback.
- * It is also responsible for advancing the history buffer position.
+ * Esta thread é executada em segundo plano durante um teste de estresse, amostrando
+ * periodicamente a utilização da CPU e a temperatura. Após coletar os dados, ela
+ * aciona uma nova renderização dos gráficos relevantes da GUI para fornecer feedback em tempo real.
+ * Também é responsável por avançar a posição do buffer de histórico.
  *
- * @param arg A pointer to the global `AppContext` structure.
+ * @param arg Um ponteiro para a estrutura global `AppContext`.
  */
 thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg);
 
 /**
- * @brief Detects the number of logical CPU cores on the system.
+ * @brief Detecta o número de núcleos de CPU lógicos no sistema.
  *
- * This function provides a cross-platform way to determine the number of
- * processors, using `sysconf` on POSIX systems and `GetSystemInfo` on Windows.
+ * Esta função fornece uma maneira multiplataforma de determinar o número de
+ * processadores, usando `sysconf` em sistemas POSIX e `GetSystemInfo` no Windows.
  *
- * @return The number of logical CPU cores available.
+ * @return O número de núcleos de CPU lógicos disponíveis.
  */
 int detect_cpu_count(void);
 

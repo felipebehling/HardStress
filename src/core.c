@@ -180,12 +180,12 @@ cleanup:
 /* --- Worker Thread and Kernels Implementation --- */
 
 /**
- * @brief Main function for each worker thread.
+ * @brief Função principal para cada thread de trabalho.
  *
- * This function is the entry point for the stress-testing threads. It allocates
- * its memory buffer, initializes it with random data, and then enters a tight
- * loop, calling the selected stress kernel functions until signaled to stop.
- * @param arg A pointer to the worker's `worker_t` context.
+ * Esta função é o ponto de entrada para as threads de teste de estresse. Ela aloca
+ * seu buffer de memória, inicializa-o com dados aleatórios e, em seguida, entra em um loop
+ * apertado, chamando as funções do kernel de estresse selecionadas até ser sinalizada para parar.
+ * @param arg Um ponteiro para o contexto `worker_t` do trabalhador.
  */
 static thread_return_t THREAD_CALL worker_main(void *arg){
     worker_t *w = (worker_t*)arg;
@@ -274,8 +274,8 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
 }
 
 /**
- * @brief Performs a floating-point intensive computation (FMA).
- * Stresses the Floating Point Unit (FPU).
+ * @brief Realiza um cálculo intensivo de ponto flutuante (FMA).
+ * Estressa a Unidade de Ponto Flutuante (FPU).
  */
 static void kernel_fpu(float *A, float *B, float *C, size_t n, int iters){
     for (int k = 0; k < iters; ++k)
@@ -283,8 +283,8 @@ static void kernel_fpu(float *A, float *B, float *C, size_t n, int iters){
 }
 
 /**
- * @brief A 64-bit mixing function to generate pseudo-random behavior.
- * Used by the integer kernel.
+ * @brief Uma função de mistura de 64 bits para gerar comportamento pseudoaleatório.
+ * Usado pelo kernel de inteiros.
  */
 static inline uint64_t mix64(uint64_t x){
     x ^= x >> 33; x *= 0xff51afd7ed558ccdULL; x ^= x >> 33; x *= 0xc4ceb9fe1a85ec53ULL; x ^= x >> 33;
@@ -292,8 +292,8 @@ static inline uint64_t mix64(uint64_t x){
 }
 
 /**
- * @brief Performs a series of complex integer and bitwise operations.
- * Stresses the Arithmetic Logic Units (ALUs).
+ * @brief Realiza uma série de operações complexas de inteiros e bitwise.
+ * Estressa as Unidades Lógicas e Aritméticas (ALUs).
  */
 static void kernel_int(uint64_t *dst, size_t n, int iters){
     uint64_t acc = 0xC0FFEE;
@@ -306,8 +306,8 @@ static void kernel_int(uint64_t *dst, size_t n, int iters){
 }
 
 /**
- * @brief Performs large memory copy operations.
- * Stresses the memory bus and controllers.
+ * @brief Realiza grandes operações de cópia de memória.
+ * Estressa o barramento de memória e os controladores.
  */
 static void kernel_stream(uint8_t *buf, size_t n){
     memset(buf, 0xA5, n/2);
@@ -315,8 +315,8 @@ static void kernel_stream(uint8_t *buf, size_t n){
 }
 
 /**
- * @brief Traverses a shuffled array of pointers in a pseudo-random order.
- * Stresses the CPU cache and memory prefetcher by creating a long dependency chain.
+ * @brief Percorre um array embaralhado de ponteiros em uma ordem pseudoaleatória.
+ * Estressa o cache da CPU e o prefetcher de memória criando uma longa cadeia de dependência.
  */
 static void kernel_ptrchase(uint32_t *idx, size_t n, int rounds){
     size_t i = 0;
