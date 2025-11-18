@@ -42,15 +42,28 @@ O HardStress oferece um método sofisticado e confiável para submeter sistemas 
 
 ---
 
+## 🔬 Como Funciona
+
+O HardStress emprega uma abordagem multifacetada para submeter o seu sistema a uma carga intensa e abrangente. Em vez de executar um único tipo de operação repetidamente, ele lança vários threads de trabalho, cada um executando um ciclo de "kérneis" de estresse especializados. Cada kérnel é projetado para atingir um subsistema específico do seu processador e memória:
+
+-   `kernel_fpu`: Satura a **Unidade de Ponto Flutuante (FPU)** com cálculos massivos de multiplicação e adição, testando o desempenho em tarefas matemáticas e científicas.
+-   `kernel_int`: Desafia as **Unidades Lógicas e Aritméticas (ALUs)** com operações complexas de inteiros e bitwise, simulando cargas de trabalho de uso geral e lógico.
+-   `kernel_stream`: Estressa o **barramento de memória e os controladores** ao realizar transferências de dados em larga escala, identificando gargalos na largura de banda da memória.
+-   `kernel_ptrchase`: Testa o **cache da CPU e o prefetcher de memória** criando longas e imprevisíveis cadeias de acesso à memória, medindo a eficiência do sistema em cenários de acesso a dados esparsos.
+
+Essa combinação garante que não apenas os núcleos da CPU, mas todo o subsistema de memória sejam levados aos seus limites, proporcionando um teste de estresse mais realista e revelador.
+
+---
+
 ## ✨ Principais Recursos
 
 O HardStress é projetado em torno de três princípios fundamentais: Precisão, Clareza e Controle.
 
 | Recurso     | Descrição                                                                                                                                                                                                                               |
 | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🎯 Precisão** | Emprega uma arquitetura multi-threaded para saturar os núcleos do processador com uma mistura balanceada de operações de ponto flutuante, inteiros e streaming de memória. Oferece a capacidade de fixar threads de trabalho em núcleos de CPU específicos para máxima consistência do teste. |
-| **📊 Clareza**   | Apresenta uma visão em tempo real e de alta fidelidade do desempenho da sua máquina através de uma interface gráfica limpa e intuitiva. Fornece visualizações dinâmicas para utilização por núcleo, histórico de desempenho por thread e métricas térmicas críticas. |
-| **⚙️ Controle**    | Fornece os controles necessários para configurar os parâmetros do teste de acordo com suas necessidades específicas, incluindo o número de threads, alocação de memória por thread e duração do teste. Todos os dados de séries temporais podem ser exportados para um arquivo CSV para análise aprofundada. |
+| **🎯 Precisão** | **Arquitetura Multi-Threaded:** Utiliza eficientemente todos os núcleos de CPU disponíveis, garantindo uma carga de trabalho máxima e sustentada. **Afinidade de CPU:** Permite fixar threads de trabalho a núcleos de CPU específicos. Isso elimina a sobrecarga do escalonador do sistema operacional e garante que a carga em cada núcleo seja consistente e repetível, o que é crucial para testes de benchmark precisos. |
+| **📊 Clareza**   | **Visualização em Tempo Real:** A interface gráfica, construída com GTK3, oferece uma visão clara e imediata das principais métricas do sistema. **Gráficos Detalhados:** Monitore o uso de cada núcleo da CPU individualmente, visualize o histórico de desempenho (iterações por segundo) para cada thread e acompanhe as principais métricas térmicas para evitar o superaquecimento. |
+| **⚙️ Controle**    | **Parâmetros de Teste Configuráveis:** Ajuste o número de threads, a quantidade de memória alocada por thread e a duração do teste para simular diferentes cenários de carga. Uma duração de `0` permite um teste de estresse contínuo. **Exportação de Dados:** Todos os dados de desempenho coletados durante o teste podem ser exportados para um arquivo CSV, permitindo uma análise aprofundada e a criação de relatórios personalizados. |
 
 ---
 
@@ -86,6 +99,19 @@ Instale o ambiente [MSYS2](https://www.msys2.org/). No terminal MSYS2 MINGW64, i
 pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-libharu pkg-config git make
 ```
 > **Nota para Usuários do Windows:** O Windows Defender SmartScreen pode sinalizar o executável pré-compilado, pois ele não é assinado digitalmente. A aplicação é segura e seu código-fonte está aberto para auditoria. Para executá-lo, clique em "Mais informações" no aviso do SmartScreen e, em seguida, em "Executar assim mesmo". Além disso, para que as métricas de desempenho (como o uso da CPU) apareçam corretamente, pode ser necessário executar a aplicação com privilégios de administrador. Clique com o botão direito em `HardStress.exe` e selecione 'Executar como administrador'.
+</details>
+
+<details>
+<summary><strong>🪟 Windows (WSL)</strong></summary>
+
+<br>
+
+Instale o [Subsistema do Windows para Linux (WSL)](https://learn.microsoft.com/pt-br/windows/wsl/install) e uma distribuição Linux (por exemplo, Ubuntu) da Microsoft Store. No seu terminal WSL, instale as dependências:
+```bash
+sudo apt update
+sudo apt install build-essential libgtk-3-dev libhpdf-dev git make
+```
+> **Nota para Usuários do WSL:** Para executar aplicações GUI no WSL, você precisará do WSLg, que está incluído no Windows 11 e em versões mais recentes do WSL para Windows 10. Certifique-se de que seu sistema está atualizado.
 </details>
 
 ---
@@ -154,6 +180,18 @@ Um agradecimento especial aos seguintes projetos e comunidades por sua inspiraç
 -   A comunidade de código aberto por fornecer recursos e suporte incríveis.
 
 ---
+
+---
+
+## 💻 Pilha Tecnológica
+
+Este projeto foi construído com as seguintes tecnologias e padrões:
+
+-   **Linguagem Principal:** C (padrões C99 e C11)
+-   **Interface Gráfica:** GTK3
+-   **Sistema de Build:** Make
+-   **Controle de Versão:** Git
+-   **Compiladores:** GCC (Linux) e MinGW-w64 (Windows)
 
 <p align="center">
   <em>Um toolkit profissional para análise de estabilidade e desempenho do sistema.</em>
