@@ -325,8 +325,8 @@ static void gui_log_message_free(gpointer data) {
 static gboolean gui_update_started(gpointer ud){
     AppContext *app = (AppContext*)ud;
     gtk_widget_set_sensitive(app->btn_stop, TRUE);
-    gtk_label_set_text(GTK_LABEL(app->status_label), "🚀 Running...");
-    gui_log(app, "[GUI] Test started: threads=%d mem/thread=%zu dur=%ds pin=%d\n",
+    gtk_label_set_text(GTK_LABEL(app->status_label), "🚀 Executando...");
+    gui_log(app, "[GUI] Teste iniciado: threads=%d mem/thread=%zu dur=%ds pin=%d\n",
             app->threads, app->mem_mib_per_thread, app->duration_sec, app->pin_affinity);
     return G_SOURCE_REMOVE;
 }
@@ -344,8 +344,8 @@ gboolean gui_update_stopped(gpointer ud){
     }
     set_controls_sensitive(app, TRUE);
     gtk_widget_set_sensitive(app->btn_stop, FALSE);
-    gtk_label_set_text(GTK_LABEL(app->status_label), "⏹ Stopped");
-    gui_log(app, "[GUI] Test stopped.\n");
+    gtk_label_set_text(GTK_LABEL(app->status_label), "⏹ Parado");
+    gui_log(app, "[GUI] Teste parado.\n");
     return G_SOURCE_REMOVE;
 }
 
@@ -398,7 +398,7 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
     app->kernel_ptr_en = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(app->check_ptr));
 
     if (!app->kernel_fpu_en && !app->kernel_int_en && !app->kernel_stream_en && !app->kernel_ptr_en) {
-        gui_log(app, "[GUI] ERROR: At least one stress kernel must be selected.\n");
+        gui_log(app, "[GUI] ERRO: Pelo menos um kernel de estresse deve ser selecionado.\n");
         return;
     }
 
@@ -409,7 +409,7 @@ static void on_btn_start_clicked(GtkButton *b, gpointer ud){
         long double usage_ratio = (long double)required_bytes / (long double)total_mem_bytes;
         if (usage_ratio >= 0.90L) {
             gui_log(app,
-                "[GUI] ERROR: Configuration would reserve ~%llu MiB but only %llu MiB are available. Reduce the thread count.\n",
+                "[GUI] ERRO: A configuração reservaria ~%llu MiB, mas apenas %llu MiB estão disponíveis. Reduza o número de threads.\n",
                 required_bytes / (1024ULL * 1024ULL), total_mem_bytes / (1024ULL * 1024ULL));
             return;
         }
@@ -516,7 +516,7 @@ static gboolean ui_tick(gpointer ud){
     unsigned long long diff = cur - last_total;
     last_total = cur;
     char buf[256];
-    snprintf(buf, sizeof(buf), "⚡ Performance: %llu iters/s | Errors: %d", diff, atomic_load(&app->errors));
+    snprintf(buf, sizeof(buf), "⚡ Desempenho: %llu iters/s | Erros: %d", diff, atomic_load(&app->errors));
     gtk_label_set_text(GTK_LABEL(app->status_label), buf);
     return TRUE;
 }
@@ -528,7 +528,7 @@ GtkWidget* create_main_window(AppContext *app) {
     GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     app->win = win;
     gtk_window_set_default_size(GTK_WINDOW(win), 1400, 900);
-    gtk_window_set_title(GTK_WINDOW(win), "HardStress - Advanced System Stress Testing");
+    gtk_window_set_title(GTK_WINDOW(win), "HardStress - Teste de Estresse Avançado de Sistema");
     
     // Apply CSS theme
     apply_css_theme(win);
@@ -578,36 +578,36 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_grid_attach(GTK_GRID(config_grid), app->entry_threads, 1, row++, 1, 1);
 
     // Memory (fixed)
-    GtkWidget *mem_label = gtk_label_new("Memory per thread:");
+    GtkWidget *mem_label = gtk_label_new("Memória por Thread:");
     gtk_widget_set_halign(mem_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(config_grid), mem_label, 0, row, 1, 1);
     char mem_buf[64];
-    snprintf(mem_buf, sizeof(mem_buf), "%zu MiB (fixed)", app->mem_mib_per_thread);
+    snprintf(mem_buf, sizeof(mem_buf), "%zu MiB (fixo)", app->mem_mib_per_thread);
     GtkWidget *mem_value_label = gtk_label_new(mem_buf);
     gtk_widget_set_halign(mem_value_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(config_grid), mem_value_label, 1, row++, 1, 1);
 
     // Duration
-    GtkWidget *dur_label = gtk_label_new("Duration (s, 0=∞):");
+    GtkWidget *dur_label = gtk_label_new("Duração (s, 0=∞):");
     gtk_widget_set_halign(dur_label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(config_grid), dur_label, 0, row, 1, 1);
     app->entry_dur = gtk_entry_new();
     char dur_buf[32]; snprintf(dur_buf, sizeof(dur_buf), "%d", app->duration_sec);
     gtk_entry_set_text(GTK_ENTRY(app->entry_dur), dur_buf);
-    gtk_entry_set_placeholder_text(GTK_ENTRY(app->entry_dur), "Time in seconds");
+    gtk_entry_set_placeholder_text(GTK_ENTRY(app->entry_dur), "Tempo em segundos");
     gtk_grid_attach(GTK_GRID(config_grid), app->entry_dur, 1, row++, 1, 1);
 
     // Kernels Frame
-    GtkWidget *kernel_frame = gtk_frame_new("Stress Kernels");
+    GtkWidget *kernel_frame = gtk_frame_new("Kernels de Estresse");
     GtkWidget *kernel_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_container_set_border_width(GTK_CONTAINER(kernel_box), 10);
     gtk_container_add(GTK_CONTAINER(kernel_frame), kernel_box);
     gtk_box_pack_start(GTK_BOX(sidebar), kernel_frame, FALSE, FALSE, 0);
 
-    app->check_fpu = gtk_check_button_new_with_label("FPU (Floating Point)");
-    app->check_int = gtk_check_button_new_with_label("ALU (Integers)");
-    app->check_stream = gtk_check_button_new_with_label("Memory Stream");
-    app->check_ptr = gtk_check_button_new_with_label("Pointer Chasing");
+    app->check_fpu = gtk_check_button_new_with_label("FPU (Ponto Flutuante)");
+    app->check_int = gtk_check_button_new_with_label("ALU (Inteiros)");
+    app->check_stream = gtk_check_button_new_with_label("Fluxo de Memória");
+    app->check_ptr = gtk_check_button_new_with_label("Perseguição de Ponteiro");
     
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_fpu), TRUE);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_int), TRUE);
@@ -620,13 +620,13 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(kernel_box), app->check_ptr, FALSE, FALSE, 0);
 
     // Additional Options
-    GtkWidget *options_frame = gtk_frame_new("Options");
+    GtkWidget *options_frame = gtk_frame_new("Opções");
     GtkWidget *options_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_container_set_border_width(GTK_CONTAINER(options_box), 10);
     gtk_container_add(GTK_CONTAINER(options_frame), options_box);
     gtk_box_pack_start(GTK_BOX(sidebar), options_frame, FALSE, FALSE, 0);
 
-    app->check_pin = gtk_check_button_new_with_label("Pin threads to CPUs");
+    app->check_pin = gtk_check_button_new_with_label("Fixar threads em CPUs");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->check_pin), TRUE);
 
     gtk_box_pack_start(GTK_BOX(options_box), app->check_pin, FALSE, FALSE, 0);
