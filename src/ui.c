@@ -18,8 +18,6 @@ typedef struct {
 //static const rgba_t THEME_BG_PRIMARY = {0.118, 0.118, 0.180, 1.0};      // #1e1e2e - Main background
 static const rgba_t THEME_BG_SECONDARY = {0.157, 0.157, 0.227, 1.0};    // #28283a - Panels
 static const rgba_t THEME_BG_TERTIARY = {0.196, 0.196, 0.274, 1.0};     // #32324a - Elevated elements
-static const rgba_t THEME_ACCENT = {0.0, 0.749, 1.0, 1.0};              // #00bfff - Vibrant cyan blue
-static const rgba_t THEME_WARN = {0.976, 0.886, 0.686, 1.0};            // #f9e2af - Amber/Orange
 static const rgba_t THEME_ERROR = {0.949, 0.561, 0.678, 1.0};           // #f28fad - Light red
 //static const rgba_t THEME_SUCCESS = {0.565, 0.933, 0.565, 1.0};         // #90ee90 - Light green
 static const rgba_t THEME_TEXT_PRIMARY = {0.878, 0.878, 0.878, 1.0};    // #e0e0e0 - Primary text
@@ -27,7 +25,7 @@ static const rgba_t THEME_TEXT_SECONDARY = {0.627, 0.627, 0.627, 1.0}; // #a0a0a
 static const rgba_t THEME_GRID = {0.235, 0.235, 0.314, 0.5};            // Subtle grid
 
 /* --- Static Function Prototypes --- */
-static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_draw_system_graph(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_iters(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static void on_btn_start_clicked(GtkButton *b, gpointer ud);
 static void on_btn_stop_clicked(GtkButton *b, gpointer ud);
