@@ -22,6 +22,7 @@ thread_return_t THREAD_CALL controller_thread_func(void *arg){
 
     int sampler_started = 0;
     int workers_started = 0;
+    int thread_history_allocated = 0;
 
     app->cpu_count = detect_cpu_count();
     app->cpu_usage = calloc(app->cpu_count, sizeof(double));
@@ -81,6 +82,7 @@ thread_return_t THREAD_CALL controller_thread_func(void *arg){
             gui_log(app, "[Controller] Falha ao alocar histórico para thread %d.\n", t);
             goto cleanup;
         }
+        thread_history_allocated++;
     }
 
     app->workers = calloc(app->threads, sizeof(worker_t));
@@ -145,7 +147,7 @@ cleanup:
 
     // Limpeza final dos buffers, mas NÃO da estrutura 'app'
     if (app->thread_history) {
-        for (int i=0; i<app->threads; i++) free(app->thread_history[i]);
+        for (int i=0; i<thread_history_allocated; i++) free(app->thread_history[i]);
         free(app->thread_history);
         app->thread_history = NULL;
     }

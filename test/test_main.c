@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <assert.h>
 #include "hardstress.h"
+#include "core.h"
 #include "metrics.h"
 #include "utils.h"
+#include <stdbool.h>
 
 // Forward declaration of test functions
 void test_detect_cpu_count();
@@ -11,6 +13,11 @@ void test_now_sec();
 void test_splitmix64();
 void test_shuffle32();
 void test_shuffle32_null_robustness();
+void test_controller_thread_alloc_fail();
+
+// Forward declaration of functions from stubs
+void set_calloc_will_fail(bool fail);
+void set_calloc_fail_countdown(int count);
 
 int main() {
     printf("Running tests...\n");
@@ -21,6 +28,7 @@ int main() {
     test_splitmix64();
     test_shuffle32();
     test_shuffle32_null_robustness();
+    test_controller_thread_alloc_fail();
 
     printf("\nAll tests passed!\n");
     return 0;
@@ -118,4 +126,22 @@ void test_shuffle32_null_robustness() {
     shuffle32(NULL, 0, &seed);
     shuffle32(NULL, 1, &seed);
     printf("  - PASSED: shuffle32 handled NULL pointer without crashing.\n");
+}
+
+void test_controller_thread_alloc_fail() {
+    printf("\n- Running test_controller_thread_alloc_fail...\n");
+    AppContext app = {0};
+    app.threads = 4;
+    app.duration_sec = 1; // Run for a short time
+
+    // Simulate failure on the 3rd allocation inside the loop
+    set_calloc_fail_countdown(3);
+
+    // This should not crash
+    controller_thread_func(&app);
+
+    printf("  - PASSED: controller_thread_func handled allocation failure without crashing.\n");
+
+    // Reset calloc behavior for subsequent tests
+    set_calloc_will_fail(false);
 }
