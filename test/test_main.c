@@ -14,6 +14,7 @@ void test_splitmix64();
 void test_shuffle32();
 void test_shuffle32_null_robustness();
 void test_controller_thread_alloc_fail();
+void test_shuffle_bias();
 
 // Forward declaration of functions from stubs
 void set_calloc_will_fail(bool fail);
@@ -29,6 +30,7 @@ int main() {
     test_shuffle32();
     test_shuffle32_null_robustness();
     test_controller_thread_alloc_fail();
+    test_shuffle_bias();
 
     printf("\nAll tests passed!\n");
     return 0;

@@ -22,10 +22,20 @@ uint64_t splitmix64(uint64_t *x){
     return z ^ (z >> 31);
 }
 
+#include <stdint.h>
+
 void shuffle32(uint32_t *a, size_t n, uint64_t *seed){
     if (a == NULL || n <= 1) return;
     for (size_t i = n - 1; i > 0; --i){
-        size_t j = (size_t)(splitmix64(seed) % (i + 1));
+        // Use rejection sampling to avoid modulo bias.
+        // This ensures that the selection of j is uniformly distributed.
+        uint64_t limit = UINT64_MAX - (UINT64_MAX % (i + 1));
+        uint64_t r;
+        do {
+            r = splitmix64(seed);
+        } while (r >= limit);
+
+        size_t j = (size_t)(r % (i + 1));
         uint32_t tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
 }
