@@ -15,6 +15,7 @@ void test_shuffle32();
 void test_shuffle32_null_robustness();
 void test_controller_thread_alloc_fail();
 void test_shuffle_bias();
+void test_time_now_sec();
 
 // Forward declaration of functions from stubs
 void set_calloc_will_fail(bool fail);
@@ -26,6 +27,7 @@ int main() {
     test_detect_cpu_count();
     test_get_total_system_memory();
     test_now_sec();
+    test_time_now_sec();
     test_splitmix64();
     test_shuffle32();
     test_shuffle32_null_robustness();

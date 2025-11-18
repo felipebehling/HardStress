@@ -10,10 +10,23 @@
 
 /* --- Platform-Independent Utility Functions --- */
 
+#ifdef _WIN32
+double now_sec(void){
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    uint64_t ns100 = (((uint64_t)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+    // The timestamp is in 100-nanosecond intervals since January 1, 1601.
+    // To convert to seconds, we first subtract the epoch difference and then
+    // divide by 10^7.
+    // Epoch difference (1970-1601) in 100-nanosecond intervals: 116444736000000000
+    return ((double)(ns100 - 116444736000000000ULL)) / 10000000.0;
+}
+#else
 double now_sec(void){
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec + ts.tv_nsec*1e-9;
 }
+#endif
 
 uint64_t splitmix64(uint64_t *x){
     uint64_t z = (*x += 0x9E3779B97F4A7C15ULL);
