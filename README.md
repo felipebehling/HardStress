@@ -68,7 +68,7 @@ Pre-compiled binaries for Linux and Windows are available in the [Releases secti
 A C compiler and the GTK3 development libraries are required.
 ```bash
 sudo apt update
-sudo apt install build-essential libgtk-3-dev libhpdf-dev
+sudo apt install build-essential libgtk-3-dev libhpdf-dev git make
 ```
 For thermal monitoring, `lm-sensors` is highly recommended:
 ```bash
