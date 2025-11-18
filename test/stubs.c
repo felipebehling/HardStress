@@ -40,3 +40,8 @@ void gui_log(AppContext *app, const char *fmt, ...) {
 void gui_update_stopped(gpointer user_data) {
     // Stub
 }
+
+void gui_set_temp_panel_visibility(AppContext *app, gboolean visible) {
+    (void)app;
+    (void)visible;
+}

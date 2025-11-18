@@ -202,10 +202,48 @@ static void on_window_destroy(GtkWidget *w, gpointer ud) {
     g_mutex_clear(&app->cpu_mutex);
     g_mutex_clear(&app->history_mutex);
     g_mutex_clear(&app->temp_mutex);
+    g_mutex_clear(&app->system_history_mutex);
+
+    // Free system history buffers
+    free(app->temp_history);
+    app->temp_history = NULL;
+    free(app->avg_cpu_history);
+    app->avg_cpu_history = NULL;
+
     free(app);
 
     gtk_main_quit();
 }
+
+typedef struct {
+    AppContext *app;
+    gboolean visible;
+} TempPanelVisibilityUpdate;
+
+static gboolean gui_set_temp_panel_visibility_dispatch(gpointer data) {
+    TempPanelVisibilityUpdate *update = data;
+    if (update->app && update->app->cpu_frame) {
+        gtk_widget_set_visible(update->app->cpu_frame, update->visible);
+    }
+    g_free(update);
+    return G_SOURCE_REMOVE;
+}
+
+void gui_set_temp_panel_visibility(AppContext *app, gboolean visible) {
+    if (!app) return;
+
+    // Check if the state is already as requested to prevent redundant UI updates
+    if (app->temp_visibility_state == (int)visible) {
+        return;
+    }
+    app->temp_visibility_state = (int)visible;
+
+    TempPanelVisibilityUpdate *update = g_new(TempPanelVisibilityUpdate, 1);
+    update->app = app;
+    update->visible = visible;
+    g_idle_add(gui_set_temp_panel_visibility_dispatch, update);
+}
+
 
 #ifndef TESTING_BUILD
 /**
@@ -620,11 +658,11 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(main_box), main_area, TRUE, TRUE, 0);
 
     // CPU Temperature List
-    GtkWidget *cpu_frame = gtk_frame_new("Temperatura do Processador");
+    app->cpu_frame = gtk_frame_new("Monitor do Sistema");
     app->cpu_drawing = gtk_drawing_area_new();
     gtk_widget_set_size_request(app->cpu_drawing, -1, 220);
-    gtk_container_add(GTK_CONTAINER(cpu_frame), app->cpu_drawing);
-    gtk_box_pack_start(GTK_BOX(main_area), cpu_frame, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(app->cpu_frame), app->cpu_drawing);
+    gtk_box_pack_start(GTK_BOX(main_area), app->cpu_frame, FALSE, FALSE, 0);
 
     // Iterations Graph
     GtkWidget *iters_frame = gtk_frame_new("Thread Activity Heatmap");
@@ -661,7 +699,7 @@ GtkWidget* create_main_window(AppContext *app) {
     g_signal_connect(app->btn_stop, "clicked", G_CALLBACK(on_btn_stop_clicked), app);
     g_signal_connect(app->btn_defaults, "clicked", G_CALLBACK(on_btn_defaults_clicked), app);
     g_signal_connect(app->btn_clear_log, "clicked", G_CALLBACK(on_btn_clear_log_clicked), app);
-    g_signal_connect(app->cpu_drawing, "draw", G_CALLBACK(on_draw_cpu), app);
+    g_signal_connect(app->cpu_drawing, "draw", G_CALLBACK(on_draw_system_graph), app);
     g_signal_connect(app->iters_drawing, "draw", G_CALLBACK(on_draw_iters), app);
 
     // Timer to update the status label
@@ -690,14 +728,14 @@ static void set_controls_sensitive(AppContext *app, gboolean state){
 }
 
 /**
- * @brief Manipulador de desenho do Cairo para o medidor de temperatura agregada da CPU.
+ * @brief Manipulador de desenho do Cairo para o gráfico de métricas do sistema.
  *
- * O widget agora enfatiza uma única leitura de temperatura para todo o processador,
- * renderizando-a como um medidor largo acompanhado de rótulos contextuais para que os usuários
- * possam avaliar rapidamente a margem térmica durante um teste de estresse.
+ * Renderiza um gráfico de linhas em tempo real mostrando o histórico da temperatura
+ * da CPU e o uso médio da CPU. O gráfico apresenta dois eixos Y para acomodar
+ * as diferentes escalas das duas métricas.
  */
-static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
-    AppContext *app = (AppContext*)user_data;
+static gboolean on_draw_system_graph(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppContext *app = (AppContext *)user_data;
     GtkAllocation alloc;
     gtk_widget_get_allocation(widget, &alloc);
     const int w = alloc.width;
@@ -705,91 +743,140 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data){
 
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
 
-    // Base background
+    // Desenha o fundo do widget
     cairo_set_source_rgba(cr, THEME_BG_SECONDARY.r, THEME_BG_SECONDARY.g, THEME_BG_SECONDARY.b, THEME_BG_SECONDARY.a);
     draw_rounded_rect(cr, 0, 0, w, h, 8.0);
     cairo_fill(cr);
 
-    double current_temp = TEMP_UNAVAILABLE;
-    g_mutex_lock(&app->temp_mutex);
-    current_temp = app->temp_celsius;
-    g_mutex_unlock(&app->temp_mutex);
-
-    const double margin = 20.0;
-    const double title_y = margin + 18.0;
-
-    // Title
-    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 18);
-    cairo_move_to(cr, margin, title_y);
-    cairo_show_text(cr, "Temperatura geral do processador");
-
-    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 12);
-    cairo_move_to(cr, margin, title_y + 18);
-    cairo_show_text(cr, "Leitura térmica agregada em tempo real");
-
-    if (current_temp <= TEMP_UNAVAILABLE) {
-        cairo_set_source_rgba(cr, THEME_WARN.r, THEME_WARN.g, THEME_WARN.b, 0.8);
-        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-        cairo_set_font_size(cr, 16);
+    // Se não houver dados históricos para exibir, mostra uma mensagem e encerra.
+    if (app->system_history_filled == 0) {
+        cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.8);
+        cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 14);
         cairo_text_extents_t ext;
-        const char *msg = "Temperatura indisponível";
+        const char *msg = "Aguardando dados de monitoramento do sistema...";
         cairo_text_extents(cr, msg, &ext);
         cairo_move_to(cr, (w - ext.width) / 2.0, (h + ext.height) / 2.0);
         cairo_show_text(cr, msg);
         return FALSE;
     }
 
-    // Draw gauge container
-    const double gauge_margin_top = margin + 60.0;
-    const double gauge_height = 60.0;
-    const double gauge_width = w - (margin * 2.0);
-    cairo_set_source_rgba(cr, THEME_BG_TERTIARY.r, THEME_BG_TERTIARY.g, THEME_BG_TERTIARY.b, 0.85);
-    draw_rounded_rect(cr, margin, gauge_margin_top, gauge_width, gauge_height, gauge_height / 2.0);
-    cairo_fill(cr);
+    // --- Configuração do Gráfico ---
+    const double margin_top = 30.0, margin_bottom = 20.0, margin_left = 50.0, margin_right = 50.0;
+    const double chart_w = w - margin_left - margin_right;
+    const double chart_h = h - margin_top - margin_bottom;
+    const int num_x_labels = 6; // Rótulos no eixo X
+    const int num_y_labels = 5; // Rótulos em cada eixo Y
 
-    // Normalize temperature to 25°C – 105°C range for visualization
-    double normalized = (current_temp - 25.0) / 80.0;
-    if (normalized < 0.0) normalized = 0.0;
-    if (normalized > 1.0) normalized = 1.0;
-
-    double severity = (current_temp - 60.0) / 35.0;
-    if (severity < 0.0) severity = 0.0;
-    if (severity > 1.0) severity = 1.0;
-
-    double fill_w = gauge_width * normalized;
-    if (fill_w > 2.0) {
-        cairo_set_source_rgba(cr,
-            THEME_ACCENT.r * (1.0 - severity) + THEME_ERROR.r * severity,
-            THEME_ACCENT.g * (1.0 - severity) + THEME_ERROR.g * severity,
-            THEME_ACCENT.b * (1.0 - severity) + THEME_ERROR.b * severity,
-            0.95);
-        draw_rounded_rect(cr, margin, gauge_margin_top, fill_w, gauge_height, gauge_height / 2.0);
-        cairo_fill(cr);
+    // --- Coleta e Análise de Dados ---
+    g_mutex_lock(&app->system_history_mutex);
+    // Cria cópias locais dos dados para evitar manter o mutex bloqueado durante o desenho
+    int len = app->system_history_filled;
+    double *temp_data = malloc(len * sizeof(double));
+    double *cpu_data = malloc(len * sizeof(double));
+    if (!temp_data || !cpu_data) {
+        if(temp_data) free(temp_data);
+        if(cpu_data) free(cpu_data);
+        g_mutex_unlock(&app->system_history_mutex);
+        return FALSE; // Falha na alocação de memória
     }
 
-    // Temperature text
-    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
-    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 48);
-    char temp_label[32];
-    snprintf(temp_label, sizeof(temp_label), "%.1f °C", current_temp);
-    cairo_text_extents_t temp_ext;
-    cairo_text_extents(cr, temp_label, &temp_ext);
-    cairo_move_to(cr, margin + (gauge_width - temp_ext.width) / 2.0, gauge_margin_top + gauge_height + 60.0);
-    cairo_show_text(cr, temp_label);
+    int start_pos = (app->system_history_pos + 1) % app->system_history_len;
+    for (int i = 0; i < len; i++) {
+        int idx = (start_pos + i) % app->system_history_len;
+        temp_data[i] = app->temp_history[idx];
+        cpu_data[i] = app->avg_cpu_history[idx];
+    }
+    g_mutex_unlock(&app->system_history_mutex);
 
-    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
+    // Encontra os valores mínimo e máximo para a temperatura para escalar o eixo Y esquerdo
+    double temp_min = 120.0, temp_max = 0.0;
+    for (int i = 0; i < len; i++) {
+        if (temp_data[i] < temp_min) temp_min = temp_data[i];
+        if (temp_data[i] > temp_max) temp_max = temp_data[i];
+    }
+    temp_min = floor(temp_min / 10.0) * 10.0; // Arredonda para baixo para a dezena mais próxima
+    temp_max = ceil(temp_max / 10.0) * 10.0;  // Arredonda para cima para a dezena mais próxima
+    if (temp_max - temp_min < 10.0) temp_max = temp_min + 10.0; // Garante um intervalo mínimo
+
+    // --- Desenho da Grade e Rótulos ---
+    cairo_set_line_width(cr, 1.0);
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 11);
+
+    // Linhas da grade horizontal e rótulos do eixo Y
+    for (int i = 0; i <= num_y_labels; i++) {
+        double y = margin_top + (chart_h * i) / num_y_labels;
+        // Desenha a linha da grade
+        cairo_set_source_rgba(cr, THEME_GRID.r, THEME_GRID.g, THEME_GRID.b, THEME_GRID.a);
+        cairo_move_to(cr, margin_left, y);
+        cairo_line_to(cr, margin_left + chart_w, y);
+        cairo_stroke(cr);
+
+        // Rótulo da Temperatura (Eixo Y Esquerdo - Vermelho)
+        char label_temp[16];
+        double temp_val = temp_max - (i * (temp_max - temp_min) / num_y_labels);
+        snprintf(label_temp, sizeof(label_temp), "%.0f°C", temp_val);
+        cairo_set_source_rgba(cr, 1.0, 0.5, 0.5, 0.9);
+        cairo_move_to(cr, margin_left - 35, y + 4);
+        cairo_show_text(cr, label_temp);
+
+        // Rótulo de Uso da CPU (Eixo Y Direito - Azul)
+        char label_cpu[16];
+        double cpu_val = 100.0 - (i * 100.0 / num_y_labels);
+        snprintf(label_cpu, sizeof(label_cpu), "%.0f%%", cpu_val);
+        cairo_set_source_rgba(cr, 0.5, 0.5, 1.0, 0.9);
+        cairo_move_to(cr, w - margin_right + 10, y + 4);
+        cairo_show_text(cr, label_cpu);
+    }
+
+    // Rótulos do eixo X (Tempo)
+    cairo_set_source_rgba(cr, THEME_TEXT_SECONDARY.r, THEME_TEXT_SECONDARY.g, THEME_TEXT_SECONDARY.b, 0.9);
+    for (int i = 0; i <= num_x_labels; i++) {
+        char label[16];
+        int sec = (app->system_history_len -1) * i / num_x_labels;
+        snprintf(label, sizeof(label), "%ds", sec);
+        cairo_text_extents_t ext;
+        cairo_text_extents(cr, label, &ext);
+        double x = margin_left + chart_w - (chart_w * i / num_x_labels) - (ext.width / 2.0);
+        cairo_move_to(cr, x, h - margin_bottom + 15);
+        cairo_show_text(cr, label);
+    }
+
+    // --- Desenho das Linhas do Gráfico ---
+    cairo_set_line_width(cr, 2.0);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+
+    // Linha de Temperatura (Vermelho)
+    cairo_set_source_rgba(cr, 1.0, 0.2, 0.2, 0.9);
+    for (int i = 0; i < len; i++) {
+        double x = margin_left + chart_w * (double)i / (app->system_history_len - 1);
+        double y = margin_top + chart_h * (temp_max - temp_data[i]) / (temp_max - temp_min);
+        if (i == 0) cairo_move_to(cr, x, y);
+        else cairo_line_to(cr, x, y);
+    }
+    cairo_stroke(cr);
+
+    // Linha de Uso da CPU (Azul)
+    cairo_set_source_rgba(cr, 0.2, 0.2, 1.0, 0.9);
+    for (int i = 0; i < len; i++) {
+        double x = margin_left + chart_w * (double)i / (app->system_history_len - 1);
+        double y = margin_top + chart_h * (1.0 - cpu_data[i]);
+        if (i == 0) cairo_move_to(cr, x, y);
+        else cairo_line_to(cr, x, y);
+    }
+    cairo_stroke(cr);
+
+    // --- Título e Legenda ---
+    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, 14);
-    const char *status = (severity < 0.33) ? "Temperatura nominal" : (severity < 0.66 ? "Aquecimento moderado" : "Risco térmico");
-    cairo_text_extents_t status_ext;
-    cairo_text_extents(cr, status, &status_ext);
-    cairo_move_to(cr, margin + (gauge_width - status_ext.width) / 2.0, gauge_margin_top + gauge_height + 85.0);
-    cairo_show_text(cr, status);
+    cairo_set_source_rgba(cr, THEME_TEXT_PRIMARY.r, THEME_TEXT_PRIMARY.g, THEME_TEXT_PRIMARY.b, 1.0);
+    cairo_move_to(cr, margin_left, margin_top - 10);
+    cairo_show_text(cr, "Monitor do Sistema");
+
+    // Libera a memória alocada para os dados do gráfico
+    free(temp_data);
+    free(cpu_data);
 
     return FALSE;
 }

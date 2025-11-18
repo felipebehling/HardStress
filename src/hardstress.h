@@ -157,8 +157,18 @@ struct AppContext {
     double *core_temps;             ///< Leituras de temperatura em cache para núcleos físicos.
     int core_temp_count;            ///< Número de entradas válidas em `core_temp_labels/core_temps`.
 
+    /* --- Histórico de Métricas do Sistema --- */
+    double *temp_history;           ///< Buffer de histórico circular para a temperatura geral da CPU.
+    double *avg_cpu_history;        ///< Buffer de histórico circular para o uso médio de CPU.
+    int system_history_pos;         ///< Posição de escrita atual nos buffers de histórico do sistema.
+    int system_history_len;         ///< Capacidade total dos buffers de histórico do sistema.
+    int system_history_filled;      ///< Número de amostras válidas nos buffers de histórico.
+    GMutex system_history_mutex;    ///< Mutex para proteger o acesso aos buffers de histórico do sistema.
+    int temp_visibility_state;      ///< Estado de visibilidade do painel de temperatura (-1=unknown, 0=hidden, 1=visible).
+
     /* --- Widgets da GUI --- */
     GtkWidget *win;                 ///< A janela principal da aplicação.
+    GtkWidget *cpu_frame;           ///< O frame que contém a área de desenho do gráfico de sistema.
     GtkWidget *entry_threads, *entry_dur; ///< Campos de entrada para parâmetros de teste.
     GtkWidget *check_pin;           ///< Checkbox para habilitar a fixação de CPU.
     GtkWidget *check_fpu, *check_int, *check_stream, *check_ptr; ///< Checkboxes para kernels de estresse.
