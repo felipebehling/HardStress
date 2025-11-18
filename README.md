@@ -83,7 +83,7 @@ sudo apt install lm-sensors
 
 Instale o ambiente [MSYS2](https://www.msys2.org/). No terminal MSYS2 MINGW64, instale a cadeia de ferramentas e as bibliotecas necessárias:
 ```bash
-pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-libharu pkg-config
+pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-gtk3 mingw-w64-x86_64-libharu pkg-config git make
 ```
 > **Nota para Usuários do Windows:** O Windows Defender SmartScreen pode sinalizar o executável pré-compilado, pois ele não é assinado digitalmente. A aplicação é segura e seu código-fonte está aberto para auditoria. Para executá-lo, clique em "Mais informações" no aviso do SmartScreen e, em seguida, em "Executar assim mesmo". Além disso, para que as métricas de desempenho (como o uso da CPU) apareçam corretamente, pode ser necessário executar a aplicação com privilégios de administrador. Clique com o botão direito em `HardStress.exe` e selecione 'Executar como administrador'.
 </details>
