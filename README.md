@@ -31,6 +31,8 @@
 
 ---
 
+## Equipe: Felipe Behling, Gustavo H. Probst, Tiago R. de Melo
+
 ## 📖 Sobre o Projeto
 
 O HardStress oferece um método sofisticado e confiável para submeter sistemas computacionais a cargas de trabalho intensas e sustentadas. É um instrumento essencial para analistas de sistemas, engenheiros de hardware e entusiastas de desempenho que precisam validar a estabilidade do sistema, analisar o desempenho térmico e identificar gargalos de desempenho com precisão.
