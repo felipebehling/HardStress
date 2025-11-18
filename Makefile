@@ -44,7 +44,7 @@ CFLAGS ?= $(CFLAGS_COMMON) $(CFLAGS_DEBUG)
 # --- Build dos Testes ---
 TEST_TARGET = test_runner
 # Fontes da aplicação necessários para os testes
-APP_TEST_SRCS = $(SRC_DIR)/utils.c
+APP_TEST_SRCS = $(SRC_DIR)/utils.c $(SRC_DIR)/core.c $(SRC_DIR)/metrics.c
 # Fontes dos testes
 TEST_SRCS = $(wildcard $(TEST_SRC_DIR)/*.c)
 # Objs dos testes (com sufixo .test.o para evitar conflitos)
@@ -57,7 +57,7 @@ ifeq ($(OS),Windows_NT)
 else
     # Linux/Outros
     TEST_CFLAGS = -Wall -std=gnu11 $(GTK_CFLAGS) -I$(SRC_DIR) -DTESTING_BUILD
-    TEST_LDFLAGS = $(GTK_LIBS) -lpthread -lm
+    TEST_LDFLAGS = $(GTK_LIBS) -lpthread -lm -Wl,--wrap=calloc
 endif
 
 # --- Alvos do Makefile ---
