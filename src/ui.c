@@ -536,11 +536,15 @@ GtkWidget* create_main_window(AppContext *app) {
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_container_add(GTK_CONTAINER(win), main_box);
 
-    // --- LEFT SIDEBAR ---
+    // --- LEFT SIDEBAR (SCROLLABLE) ---
+    GtkWidget *sidebar_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sidebar_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_size_request(sidebar_scroll, 350, -1);
+    gtk_box_pack_start(GTK_BOX(main_box), sidebar_scroll, FALSE, FALSE, 0);
+
     GtkWidget *sidebar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
-    gtk_widget_set_size_request(sidebar, 320, -1);
     gtk_container_set_border_width(GTK_CONTAINER(sidebar), 20);
-    gtk_box_pack_start(GTK_BOX(main_box), sidebar, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(sidebar_scroll), sidebar);
 
     // Panel Title
     GtkWidget *title = gtk_label_new(NULL);
@@ -652,10 +656,14 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_style_context_add_class(gtk_widget_get_style_context(app->status_label), "status-label");
     gtk_box_pack_start(GTK_BOX(sidebar), app->status_label, FALSE, FALSE, 0);
 
-    // --- MAIN AREA (RIGHT) ---
+    // --- MAIN AREA (RIGHT, SCROLLABLE) ---
+    GtkWidget *main_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(main_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_box_pack_start(GTK_BOX(main_box), main_scroll, TRUE, TRUE, 0);
+
     GtkWidget *main_area = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
     gtk_container_set_border_width(GTK_CONTAINER(main_area), 20);
-    gtk_box_pack_start(GTK_BOX(main_box), main_area, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(main_scroll), main_area);
 
     // CPU Temperature List
     app->cpu_frame = gtk_frame_new("Monitor do Sistema");
