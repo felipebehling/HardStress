@@ -3,15 +3,18 @@
 #include <assert.h>
 #include <unistd.h>
 
+/**
+ * @brief Testa a monotonicidade e validade básica da função now_sec.
+ */
 void test_time_now_sec(void) {
     printf("Testing now_sec()... ");
     double start_time = now_sec();
     assert(start_time > 0);
-    // Sleep for a short duration to ensure time progresses
+    // Dorme por uma curta duração para garantir que o tempo progrida
     #ifdef _WIN32
-    Sleep(10); // Sleep for 10 milliseconds on Windows
+    Sleep(10); // Dorme por 10 milissegundos no Windows
     #else
-    usleep(10000); // Sleep for 10000 microseconds (10 ms) on other systems
+    usleep(10000); // Dorme por 10000 microssegundos (10 ms) em outros sistemas
     #endif
     double end_time = now_sec();
     assert(end_time > start_time);

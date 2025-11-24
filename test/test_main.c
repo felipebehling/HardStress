@@ -6,7 +6,7 @@
 #include "utils.h"
 #include <stdbool.h>
 
-// Forward declaration of test functions
+// Declaração antecipada de funções de teste
 void test_detect_cpu_count();
 void test_get_total_system_memory();
 void test_now_sec();
@@ -17,10 +17,13 @@ void test_controller_thread_alloc_fail();
 void test_shuffle_bias();
 void test_time_now_sec();
 
-// Forward declaration of functions from stubs
+// Declaração antecipada de funções de stubs
 void set_calloc_will_fail(bool fail);
 void set_calloc_fail_countdown(int count);
 
+/**
+ * @brief Função principal para execução dos testes.
+ */
 int main() {
     printf("Running tests...\n");
 
@@ -38,6 +41,9 @@ int main() {
     return 0;
 }
 
+/**
+ * @brief Testa a função de detecção de contagem de CPUs.
+ */
 void test_detect_cpu_count() {
     printf("\n- Running test_detect_cpu_count...\n");
     int cpu_count = detect_cpu_count();
@@ -46,6 +52,9 @@ void test_detect_cpu_count() {
     printf("  - PASSED: cpu_count is greater than 0.\n");
 }
 
+/**
+ * @brief Testa a função de obter a memória total do sistema.
+ */
 void test_get_total_system_memory() {
     printf("\n- Running test_get_total_system_memory...\n");
     unsigned long long total_mem = get_total_system_memory();
@@ -54,6 +63,9 @@ void test_get_total_system_memory() {
     printf("  - PASSED: total_mem is greater than 0.\n");
 }
 
+/**
+ * @brief Testa a função de obter o tempo atual.
+ */
 void test_now_sec() {
     printf("\n- Running test_now_sec...\n");
     double time1 = now_sec();
@@ -73,6 +85,9 @@ void test_now_sec() {
     printf("  - PASSED: now_sec is monotonic and increasing.\n");
 }
 
+/**
+ * @brief Testa a função do gerador de números aleatórios splitmix64.
+ */
 void test_splitmix64() {
     printf("\n- Running test_splitmix64...\n");
     uint64_t seed = 12345;
@@ -88,6 +103,9 @@ void test_splitmix64() {
     printf("  - PASSED: Same seed produces the same value.\n");
 }
 
+/**
+ * @brief Testa a função shuffle32.
+ */
 void test_shuffle32() {
     printf("\n- Running test_shuffle32...\n");
     uint32_t arr[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -121,6 +139,9 @@ void test_shuffle32() {
     printf("  - PASSED: Shuffled array contains all original elements.\n");
 }
 
+/**
+ * @brief Testa a robustez da função shuffle32 com ponteiros nulos.
+ */
 void test_shuffle32_null_robustness() {
     printf("\n- Running test_shuffle32_null_robustness...\n");
     uint64_t seed = 123;
@@ -132,6 +153,9 @@ void test_shuffle32_null_robustness() {
     printf("  - PASSED: shuffle32 handled NULL pointer without crashing.\n");
 }
 
+/**
+ * @brief Testa a falha de alocação na thread controladora.
+ */
 void test_controller_thread_alloc_fail() {
     printf("\n- Running test_controller_thread_alloc_fail...\n");
     AppContext app = {0};

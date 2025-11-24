@@ -11,8 +11,23 @@ static void kernel_int(uint64_t *dst, size_t n, int iters);
 static void kernel_stream(uint8_t *buf, size_t n);
 static void kernel_ptrchase(uint32_t *idx, size_t n, int rounds);
 
-/* --- Controller Thread Implementation --- */
+/* --- Implementação da Thread Controladora --- */
 
+/**
+ * @brief A função principal da thread controladora de teste.
+ *
+ * Esta função orquestra todo o ciclo de vida de um teste de estresse. É
+ * iniciada em uma thread separada quando o usuário clica em "Iniciar". Suas
+ * responsabilidades incluem:
+ * - Inicializar o estado da aplicação para o teste.
+ * - Alocar recursos (memória para workers, buffers de histórico, etc.).
+ * - Criar e iniciar as threads de trabalho e a thread de amostragem de métricas.
+ * - Fixar as threads de trabalho aos núcleos da CPU, se solicitado.
+ * - Monitorar a duração do teste e pará-lo quando concluído.
+ * - Limpar todos os recursos e sinalizar a UI quando o teste terminar.
+ *
+ * @param arg Um ponteiro para a estrutura global `AppContext`.
+ */
 thread_return_t THREAD_CALL controller_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
     atomic_store(&app->running, 1);
@@ -177,7 +192,7 @@ cleanup:
     return 0;
 }
 
-/* --- Worker Thread and Kernels Implementation --- */
+/* --- Implementação da Thread Worker e Kernels --- */
 
 /**
  * @brief Função principal para cada thread de trabalho.
@@ -202,7 +217,7 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
         }
     }
 
-    // Set up pointers and random seed
+    // Configura ponteiros e semente aleatória
     size_t floats = w->buf_bytes / sizeof(float);
     size_t floats_per_vec = floats / 3;
     float *A = (float*)w->buf;
@@ -215,7 +230,7 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
     uint64_t *I64 = (uint64_t*)w->buf;
     uint64_t seed = 0x12340000 + (uint64_t)w->tid;
 
-    // Initialize buffer for FPU kernel
+    // Inicializa o buffer para o kernel FPU
     if (app->kernel_fpu_en && A && B && C && floats_per_vec > 0) {
         for (size_t i=0; i < floats_per_vec; i++){
             A[i] = (float)(splitmix64(&seed) & 0xFFFF) / 65535.0f;
@@ -223,13 +238,13 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
             C[i] = (float)(splitmix64(&seed) & 0xFFFF) / 65535.0f;
         }
     }
-    // Initialize buffer for Integer kernel
+    // Inicializa o buffer para o kernel de Inteiros
     if (app->kernel_int_en && w->buf) {
         size_t ints64 = w->buf_bytes / sizeof(uint64_t);
         for (size_t i=0;i<ints64;i++) I64[i] = splitmix64(&seed);
     }
     
-    // Initialize index array for Pointer Chasing kernel
+    // Inicializa o array de índices para o kernel Pointer Chasing
     if(app->kernel_ptr_en && w->buf) {
         w->idx_len = (w->buf_bytes / sizeof(uint32_t));
         if (w->idx_len > 0) {
@@ -243,13 +258,13 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
             }
             for (uint32_t i=0; i<w->idx_len; i++) w->idx[i] = i;
             shuffle32(w->idx, w->idx_len, &seed);
-            w->idx[w->idx_len-1] = 0; // Ensure the chase is a cycle
+            w->idx[w->idx_len-1] = 0; // Garante que a perseguição seja um ciclo
         }
     }
 
     atomic_store(&w->running, 1u);
 
-    // Main stress loop
+    // Loop principal de estresse
     while (atomic_load(&w->running) && atomic_load(&app->running)){
         if (w->buf) {
             if(app->kernel_fpu_en && floats_per_vec > 0 && A && B && C) kernel_fpu(A,B,C, floats_per_vec, 4);
@@ -261,13 +276,13 @@ static thread_return_t THREAD_CALL worker_main(void *arg){
         atomic_fetch_add(&w->iters, 1u);
         atomic_fetch_add(&app->total_iters, 1u);
         
-        // Record iteration count for the history graph
+        // Registra a contagem de iterações para o gráfico de histórico
         g_mutex_lock(&app->history_mutex);
         if (app->thread_history) app->thread_history[w->tid][app->history_pos] = atomic_load(&w->iters);
         g_mutex_unlock(&app->history_mutex);
     }
 
-    // Cleanup
+    // Limpeza
     if(w->idx) free(w->idx);
     if(w->buf) free(w->buf);
     return 0;

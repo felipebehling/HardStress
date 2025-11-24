@@ -9,7 +9,12 @@
 #define N_ELEMENTS 3
 #define N_ITERATIONS 100000
 
-// Test function for shuffle32 bias
+/**
+ * @brief Testa a presença de viés estatístico na função shuffle32.
+ *
+ * Executa o embaralhamento um grande número de vezes e verifica se cada elemento
+ * aparece em cada posição com uma frequência aproximadamente uniforme.
+ */
 void test_shuffle_bias() {
     uint32_t a[N_ELEMENTS];
     uint64_t seed = 12345;
@@ -26,7 +31,7 @@ void test_shuffle_bias() {
     }
 
     double expected = (double)N_ITERATIONS / N_ELEMENTS;
-    double tolerance = expected * 0.02; // 2% tolerance
+    double tolerance = expected * 0.02; // 2% tolerância
 
     printf("\n- Running test_shuffle_bias...\n");
     printf("  - Shuffle distribution results (expected avg: %.2f, tolerance: %.2f):\n", expected, tolerance);
