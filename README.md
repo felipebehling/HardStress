@@ -3,7 +3,7 @@
 <img src="https://capsule-render.vercel.app/api?type=waving&color=auto&height=240&section=header&text=HardStress&fontSize=80&fontColor=ffffff" alt="Banner do HardStress"/>
 
 # HardStress
-### Um Toolkit Profissional para Análise de Estabilidade e Desempenho do Sistema.
+### Um Toolkit para Análise de Estabilidade e Desempenho do Sistema.
 
 <p>
     <a href="https://github.com/felipebehling/Hardstress/actions/workflows/build.yml">
