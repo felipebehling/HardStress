@@ -502,7 +502,7 @@ static gboolean on_window_delete(GtkWidget *w, GdkEvent *e, gpointer ud){
  *
  * Atualiza o rótulo de status principal com dados de desempenho em tempo real, como
  * total de iterações por segundo e contagem de erros.
- */
+
 static gboolean ui_tick(gpointer ud){
     AppContext *app = (AppContext*)ud;
     if (!atomic_load(&app->running)) {
@@ -520,6 +520,7 @@ static gboolean ui_tick(gpointer ud){
     gtk_label_set_text(GTK_LABEL(app->status_label), buf);
     return TRUE;
 }
+ */
 
 /**
  * @brief Constrói e retorna a janela principal da aplicação com todos os seus widgets.
