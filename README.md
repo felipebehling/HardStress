@@ -21,8 +21,8 @@
   <a href="#-sobre-o-projeto">Sobre</a> •
   <a href="#-principais-recursos">Recursos</a> •
   <a href="#-começando">Começando</a> •
-  <a href="#-uso">Uso</a> •
-  <a href="#-desenvolvimento">Desenvolvimento</a> •
+  <a href="#uso">Uso</a> •
+  <a href="#desenvolvimento">Desenvolvimento</a> •
   <a href="#-licença">Licença</a> •
 </p>
 </div>
@@ -61,10 +61,8 @@ O HardStress é projetado em torno de três princípios fundamentais: Precisão,
 
 | Recurso     | Descrição                                                                                                                                                                                                                               |
 | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🎯 Precisão** | **Arquitetura Multi-Threaded:** Utiliza eficientemente todos os núcleos de CPU disponíveis, garantindo uma carga de trabalho máxima e sustentada. 
-**Afinidade de CPU:** Permite fixar threads de trabalho a núcleos de CPU específicos. Isso elimina a sobrecarga do escalonador do sistema operacional e garante que a carga em cada núcleo seja consistente e repetível. |
-| **📊 Clareza**   | **Visualização em Tempo Real:** A interface gráfica, construída com GTK3, oferece uma visão clara e imediata das principais métricas do sistema. 
-**Gráficos Detalhados:** Visualize o histórico de desempenho (iterações por segundo) para cada thread e acompanhe as principais métricas térmicas. |
+| **🎯 Precisão** | **Arquitetura Multi-Threaded:** Utiliza eficientemente todos os núcleos de CPU disponíveis, garantindo uma carga de trabalho máxima e sustentada. **Afinidade de CPU:** Permite fixar threads de trabalho a núcleos de CPU específicos. Isso elimina a sobrecarga do escalonador do sistema operacional e garante que a carga em cada núcleo seja consistente e repetível. |
+| **📊 Clareza**   | **Visualização em Tempo Real:** A interface gráfica, construída com GTK3, oferece uma visão clara e imediata das principais métricas do sistema. **Gráficos Detalhados:** Visualize o histórico de desempenho (iterações por segundo) para cada thread e acompanhe as principais métricas térmicas. |
 | **⚙️ Controle**    | **Parâmetros de Teste Configuráveis:** Ajuste o número de threads e a duração do teste para simular diferentes cenários de carga. Uma duração de `0` permite um teste de estresse contínuo. |
 
 ---
