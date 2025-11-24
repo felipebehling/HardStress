@@ -674,7 +674,7 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(main_area), app->cpu_frame, FALSE, FALSE, 0);
 
     // Iterations Graph
-    GtkWidget *iters_frame = gtk_frame_new("Thread Activity Heatmap");
+    GtkWidget *iters_frame = gtk_frame_new("Thread Heatmap");
     app->iters_drawing = gtk_drawing_area_new();
     gtk_widget_set_size_request(app->iters_drawing, -1, 300);
     gtk_container_add(GTK_CONTAINER(iters_frame), app->iters_drawing);
@@ -693,11 +693,11 @@ GtkWidget* create_main_window(AppContext *app) {
     gtk_box_pack_start(GTK_BOX(main_area), heatmap_legend, FALSE, FALSE, 0);
 
     // System Log
-    GtkWidget *log_frame = gtk_frame_new("System Log");
+    GtkWidget *log_frame = gtk_frame_new("Log de Sistema");
     GtkWidget *log_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_add(GTK_CONTAINER(log_frame), log_box);
 
-    app->btn_clear_log = gtk_button_new_with_label("Clear Log");
+    app->btn_clear_log = gtk_button_new_with_label("Limpar Log");
     gtk_style_context_add_class(gtk_widget_get_style_context(app->btn_clear_log), "styled-button");
     gtk_widget_set_halign(app->btn_clear_log, GTK_ALIGN_END);
     gtk_box_pack_start(GTK_BOX(log_box), app->btn_clear_log, FALSE, FALSE, 0);
