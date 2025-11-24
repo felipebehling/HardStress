@@ -8,8 +8,16 @@
 #include <string.h>
 #endif
 
-/* --- Platform-Independent Utility Functions --- */
+/* --- Funções Utilitárias Independentes de Plataforma --- */
 
+/**
+ * @brief Obtém o tempo atual como um timestamp de alta resolução em segundos.
+ *
+ * Esta função usa um relógio monotônico para fornecer uma medição de tempo estável e de alta precisão
+ * que não é afetada por mudanças no tempo do sistema.
+ *
+ * @return O tempo atual em segundos, com precisão de microssegundo ou melhor.
+ */
 #ifdef _WIN32
 double now_sec(void){
     FILETIME ft;
@@ -28,6 +36,17 @@ double now_sec(void){
 }
 #endif
 
+/**
+ * @brief Um gerador de números pseudoaleatórios (PRNG) de 64 bits rápido e de alta qualidade.
+ *
+ * Implementa o algoritmo `splitmix64`, conhecido por sua velocidade
+ * e boas propriedades estatísticas. É usado como mecanismo de semente para
+ * outras operações.
+ *
+ * @param x Um ponteiro para a variável de estado de 64 bits para o PRNG. Este estado
+ *          é atualizado a cada chamada.
+ * @return O próximo número pseudoaleatório de 64 bits na sequência.
+ */
 uint64_t splitmix64(uint64_t *x){
     uint64_t z = (*x += 0x9E3779B97F4A7C15ULL);
     z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
@@ -37,6 +56,16 @@ uint64_t splitmix64(uint64_t *x){
 
 #include <stdint.h>
 
+/**
+ * @brief Embaralha um array de inteiros de 32 bits usando o algoritmo de Fisher-Yates.
+ *
+ * Esta função realiza um embaralhamento in-place do array fornecido, garantindo
+ * uma permutação aleatória uniforme de seus elementos.
+ *
+ * @param a O array de inteiros de 32 bits a ser embaralhado.
+ * @param n O número de elementos no array.
+ * @param seed Um ponteiro para o estado da semente de 64 bits usado pelo PRNG `splitmix64`.
+ */
 void shuffle32(uint32_t *a, size_t n, uint64_t *seed){
     if (a == NULL || n <= 1) return;
     for (size_t i = n - 1; i > 0; --i){
@@ -53,6 +82,14 @@ void shuffle32(uint32_t *a, size_t n, uint64_t *seed){
     }
 }
 
+/**
+ * @brief Recupera a quantidade total de RAM física no sistema.
+ *
+ * Esta função é multiplataforma, usando `/proc/meminfo` no Linux e
+ * `GlobalMemoryStatusEx` no Windows.
+ *
+ * @return A memória física total em bytes. Retorna 0 em caso de falha.
+ */
 unsigned long long get_total_system_memory() {
 #ifdef _WIN32
     // On Windows, use the GlobalMemoryStatusEx function to get memory info.
@@ -83,17 +120,36 @@ unsigned long long get_total_system_memory() {
 }
 
 
-/* --- Thread Abstraction Implementation --- */
+/* --- Implementação da Abstração de Thread --- */
 
 #ifdef _WIN32
 // Windows-specific implementation using the Win32 API
 #include <process.h> 
 
+/**
+ * @brief Cria uma nova thread (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_create` (POSIX) e `_beginthreadex` (Windows).
+ *
+ * @param t Ponteiro para um `thread_handle_t` onde o handle da nova thread será armazenado.
+ * @param func A função que a nova thread executará.
+ * @param arg O argumento a ser passado para a função da thread.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_create(thread_handle_t *t, thread_func_t func, void *arg) {
     // _beginthreadex is the recommended way to create threads on Windows for C runtime compatibility.
     *t = (HANDLE)_beginthreadex(NULL, 0, func, arg, 0, NULL);
     return (*t == NULL) ? -1 : 0;
 }
+
+/**
+ * @brief Aguarda a finalização de uma thread específica e limpa seus recursos (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_join` (POSIX) e `WaitForSingleObject` / `CloseHandle` (Windows).
+ *
+ * @param t O handle da thread a ser aguardada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_join(thread_handle_t t) {
     if(t) {
         // Wait for the thread to finish and then close the handle.
@@ -102,6 +158,17 @@ int thread_join(thread_handle_t t) {
     }
     return 0;
 }
+
+/**
+ * @brief Desanexa uma thread, permitindo que ela execute de forma independente e tenha seus recursos liberados na finalização (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_detach` (POSIX) e `CloseHandle` (Windows).
+ * Nota: No Windows, desanexar simplesmente fecha o handle, permitindo que a thread continue a ser executada,
+ * mas o SO gerencia a limpeza dos recursos.
+ *
+ * @param t O handle da thread a ser desanexada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_detach(thread_handle_t t) {
     // On Windows, "detaching" is achieved by simply closing the handle.
     // The thread will continue to run, and its resources will be freed by the OS on termination.
@@ -110,12 +177,43 @@ int thread_detach(thread_handle_t t) {
 }
 #else
 // POSIX-specific implementation using pthreads
+
+/**
+ * @brief Cria uma nova thread (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_create` (POSIX) e `_beginthreadex` (Windows).
+ *
+ * @param t Ponteiro para um `thread_handle_t` onde o handle da nova thread será armazenado.
+ * @param func A função que a nova thread executará.
+ * @param arg O argumento a ser passado para a função da thread.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_create(thread_handle_t *t, thread_func_t func, void *arg) {
     return pthread_create(t, NULL, func, arg);
 }
+
+/**
+ * @brief Aguarda a finalização de uma thread específica e limpa seus recursos (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_join` (POSIX) e `WaitForSingleObject` / `CloseHandle` (Windows).
+ *
+ * @param t O handle da thread a ser aguardada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_join(thread_handle_t t) {
     return pthread_join(t, NULL);
 }
+
+/**
+ * @brief Desanexa uma thread, permitindo que ela execute de forma independente e tenha seus recursos liberados na finalização (multiplataforma).
+ *
+ * Este é um wrapper em torno de `pthread_detach` (POSIX) e `CloseHandle` (Windows).
+ * Nota: No Windows, desanexar simplesmente fecha o handle, permitindo que a thread continue a ser executada,
+ * mas o SO gerencia a limpeza dos recursos.
+ *
+ * @param t O handle da thread a ser desanexada.
+ * @return 0 em caso de sucesso, não-zero em caso de falha.
+ */
 int thread_detach(thread_handle_t t) {
     return pthread_detach(t);
 }

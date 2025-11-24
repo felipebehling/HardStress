@@ -19,6 +19,16 @@ static void sample_temp_linux(AppContext *app);
 
 /* --- Sampler Thread Implementation --- */
 
+/**
+ * @brief A função principal da thread de amostragem de métricas.
+ *
+ * Esta thread é executada em segundo plano durante um teste de estresse, amostrando
+ * periodicamente a utilização da CPU e a temperatura. Após coletar os dados, ela
+ * aciona uma nova renderização dos gráficos relevantes da GUI para fornecer feedback em tempo real.
+ * Também é responsável por avançar a posição do buffer de histórico.
+ *
+ * @param arg Um ponteiro para a estrutura global `AppContext`.
+ */
 thread_return_t THREAD_CALL cpu_sampler_thread_func(void *arg){
     AppContext *app = (AppContext*)arg;
 
@@ -169,10 +179,11 @@ int detect_cpu_count(void){
 }
 
 /**
- * @brief Reads CPU time statistics from /proc/stat.
- * @param out An array of cpu_sample_t to store the parsed data.
- * @param maxcpu The maximum number of CPUs to read data for.
- * @return The number of CPUs read, or -1 on failure.
+ * @brief Lê estatísticas de tempo de CPU de /proc/stat.
+ * @param out Um array de cpu_sample_t para armazenar os dados analisados.
+ * @param maxcpu O número máximo de CPUs para ler dados.
+ * @param path O caminho para o arquivo stat (geralmente /proc/stat).
+ * @return O número de CPUs lidas, ou -1 em caso de falha.
  */
 #ifndef _WIN32 /* LINUX IMPLEMENTATION */
 int read_proc_stat(cpu_sample_t *out, int maxcpu, const char *path) {
@@ -198,10 +209,10 @@ int read_proc_stat(cpu_sample_t *out, int maxcpu, const char *path) {
 
 
 /**
- * @brief Calculates CPU usage percentage between two samples.
- * @param a The first (earlier) CPU time sample.
- * @param b The second (later) CPU time sample.
- * @return The CPU usage as a value between 0.0 and 1.0.
+ * @brief Calcula a porcentagem de uso da CPU entre duas amostras.
+ * @param a A primeira (mais antiga) amostra de tempo de CPU.
+ * @param b A segunda (mais recente) amostra de tempo de CPU.
+ * @return O uso da CPU como um valor entre 0.0 e 1.0.
  */
 double compute_usage(const cpu_sample_t *a,const cpu_sample_t *b){
     unsigned long long idle_a=a->idle + a->iowait;
@@ -221,10 +232,10 @@ double compute_usage(const cpu_sample_t *a,const cpu_sample_t *b){
 }
 
 /**
- * @brief Samples CPU usage on Linux.
+ * @brief Amostra o uso da CPU no Linux.
  *
- * Takes two snapshots of /proc/stat with a short delay and computes the
- * differential usage for each core.
+ * Tira dois instantâneos de /proc/stat com um curto atraso e calcula o
+ * uso diferencial para cada núcleo.
  */
 
 static void sample_cpu_linux(AppContext *app) {
@@ -247,10 +258,10 @@ static void sample_cpu_linux(AppContext *app) {
 }
 
 /**
- * @brief Samples CPU temperature on Linux by running `sensors`.
+ * @brief Amostra a temperatura da CPU no Linux executando `sensors`.
  *
- * Parses the output of `sensors -u` to find the first available thermal
- * sensor reading. Requires the `lm-sensors` package to be installed.
+ * Analisa a saída de `sensors -u` para encontrar a primeira leitura de sensor térmico disponível.
+ * Requer que o pacote `lm-sensors` esteja instalado.
  */
 static void sample_temp_linux(AppContext *app){
     FILE *p = popen("sensors -u 2>/dev/null", "r");
@@ -323,10 +334,10 @@ static void sample_temp_linux(AppContext *app){
 #else /* --- WINDOWS IMPLEMENTATION --- */
 
 /**
- * @brief Initializes the PDH (Performance Data Helper) query for CPU usage.
+ * @brief Inicializa a consulta PDH (Performance Data Helper) para uso da CPU.
  *
- * Sets up a PDH query and adds a counter for "% Processor Time" for each
- * logical processor on the system.
+ * Configura uma consulta PDH e adiciona um contador para "% Processor Time" para cada
+ * processador lógico no sistema.
  */
 static int pdh_init_query(AppContext *app){
     if (PdhOpenQuery(NULL, 0, &app->pdh_query) != ERROR_SUCCESS) return -1;
@@ -350,7 +361,7 @@ static int pdh_init_query(AppContext *app){
 }
 
 /**
- * @brief Closes the PDH query and frees associated resources.
+ * @brief Fecha a consulta PDH e libera os recursos associados.
  */
 static void pdh_close_query(AppContext *app) {
     if(!app->pdh_query) return;
@@ -364,7 +375,7 @@ static void pdh_close_query(AppContext *app) {
 }
 
 /**
- * @brief Samples CPU usage on Windows using the PDH library.
+ * @brief Amostra o uso da CPU no Windows usando a biblioteca PDH.
  */
 static void sample_cpu_windows(AppContext *app){
     if (!app->pdh_query) return;
@@ -383,7 +394,7 @@ static void sample_cpu_windows(AppContext *app){
 }
 
 /**
- * @brief Initializes COM and connects to the WMI service for temperature monitoring.
+ * @brief Inicializa o COM e conecta ao serviço WMI para monitoramento de temperatura.
  */
 static void wmi_init(AppContext *app) {
     app->pSvc = NULL;
@@ -409,7 +420,7 @@ static void wmi_init(AppContext *app) {
 }
 
 /**
- * @brief Deinitializes COM and releases WMI resources.
+ * @brief Desinicializa o COM e libera os recursos WMI.
  */
 static void wmi_deinit(AppContext *app) {
     if(app->pSvc) { app->pSvc->lpVtbl->Release(app->pSvc); app->pSvc = NULL; }
@@ -418,10 +429,10 @@ static void wmi_deinit(AppContext *app) {
 }
 
 /**
- * @brief Samples CPU temperature on Windows by querying WMI.
+ * @brief Amostra a temperatura da CPU no Windows consultando o WMI.
  *
- * Queries the `MSAcpi_ThermalZoneTemperature` class to get a temperature
- * reading. The value is returned in tenths of a Kelvin and is converted to Celsius.
+ * Consulta a classe `MSAcpi_ThermalZoneTemperature` para obter uma leitura de temperatura.
+ * O valor é retornado em décimos de Kelvin e é convertido para Celsius.
  */
 static void sample_temp_windows(AppContext *app) {
     if (!app->pSvc) {

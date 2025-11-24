@@ -229,10 +229,15 @@ static gboolean gui_set_temp_panel_visibility_dispatch(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
+/**
+ * @brief Atualização de interface do usuário thread-safe para mostrar ou ocultar o painel de monitoramento de temperatura.
+ * @param app O contexto da aplicação.
+ * @param visible TRUE para mostrar o painel, FALSE para ocultá-lo.
+ */
 void gui_set_temp_panel_visibility(AppContext *app, gboolean visible) {
     if (!app) return;
 
-    // Check if the state is already as requested to prevent redundant UI updates
+    // Verifica se o estado já é o solicitado para evitar atualizações redundantes da interface do usuário
     if (app->temp_visibility_state == (int)visible) {
         return;
     }
@@ -523,6 +528,12 @@ static gboolean ui_tick(gpointer ud){
 
 /**
  * @brief Constrói e retorna a janela principal da aplicação com todos os seus widgets.
+ *
+ * Esta função constrói toda a interface do usuário, conectando sinais para
+ * botões e outros elementos interativos aos seus respectivos manipuladores de callback.
+ *
+ * @param app Um ponteiro para a estrutura global `AppContext`.
+ * @return Um ponteiro para a `GtkWindow` recém-criada.
  */
 GtkWidget* create_main_window(AppContext *app) {
     GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);

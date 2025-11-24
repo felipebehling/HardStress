@@ -1,15 +1,15 @@
 /**
  * @file main.c
- * @brief The main entry point for the HardStress application.
+ * @brief O ponto de entrada principal para a aplicação HardStress.
  *
- * This file contains the `main` function, which initializes the application,
- * including GTK, the main AppContext structure, and the user interface.
- * It also defines the global color constants for the UI theme.
+ * Este arquivo contém a função `main`, que inicializa a aplicação,
+ * incluindo o GTK, a estrutura principal AppContext e a interface do usuário.
+ * Também define as constantes de cores globais para o tema da UI.
  */
 #include "hardstress.h"
-#include "ui.h" // Required for create_main_window
+#include "ui.h" // Necessário para create_main_window
 
-// Define the global colors that were declared in the header.
+// Define as cores globais que foram declaradas no cabeçalho.
 const color_t COLOR_BG = {0.12, 0.12, 0.12};
 const color_t COLOR_FG = {0.15, 0.65, 0.90};
 const color_t COLOR_WARN = {0.8, 0.4, 0.1};
@@ -18,22 +18,22 @@ const color_t COLOR_TEXT = {1.0, 1.0, 1.0};
 const color_t COLOR_TEMP = {1.0, 1.0, 0.8};
 
 /**
- * @brief The main entry point of the HardStress application.
+ * @brief O ponto de entrada principal da aplicação HardStress.
  *
- * This function performs the following steps:
- * 1. Initializes the GTK toolkit.
- * 2. Allocates and initializes the main `AppContext` structure, which holds
- *    the entire application state.
- * 3. Initializes mutexes for thread-safe data access.
- * 4. Sets default configuration values.
- * 5. Calls `create_main_window` to build the GUI.
- * 6. Shows the main window and starts the GTK main event loop.
+ * Esta função executa os seguintes passos:
+ * 1. Inicializa o toolkit GTK.
+ * 2. Aloca e inicializa a estrutura principal `AppContext`, que mantém
+ *    todo o estado da aplicação.
+ * 3. Inicializa mutexes para acesso seguro aos dados por threads.
+ * 4. Define valores de configuração padrão.
+ * 5. Chama `create_main_window` para construir a GUI.
+ * 6. Mostra a janela principal e inicia o loop principal de eventos do GTK.
  *
- * Cleanup of resources is handled in the `on_window_destroy` callback in `ui.c`.
+ * A limpeza de recursos é tratada no callback `on_window_destroy` em `ui.c`.
  *
- * @param argc The number of command-line arguments.
- * @param argv An array of command-line argument strings.
- * @return 0 on successful execution, 1 on failure.
+ * @param argc O número de argumentos da linha de comando.
+ * @param argv Um array de strings de argumentos da linha de comando.
+ * @return 0 em caso de execução bem-sucedida, 1 em caso de falha.
  */
 int main(int argc, char **argv){
     gtk_init(&argc, &argv);

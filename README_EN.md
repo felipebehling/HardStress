@@ -63,7 +63,7 @@ HardStress is designed around three core principles: Precision, Clarity, and Con
 | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **🎯 Precision** | **Multi-Threaded Architecture:** Efficiently utilizes all available CPU cores, ensuring a maximum and sustained workload. **CPU Affinity:** Allows pinning worker threads to specific CPU cores. This eliminates the overhead of the operating system's scheduler and ensures that the load on each core is consistent and repeatable, which is crucial for accurate benchmarking. |
 | **📊 Clarity**   | **Real-Time Visualization:** The GTK3-based graphical interface provides a clear and immediate view of key system metrics. **Detailed Graphs:** Monitor the usage of each CPU core individually, view the performance history (iterations per second) for each thread, and track key thermal metrics to prevent overheating. |
-| **⚙️ Control**    | **Configurable Test Parameters:** Adjust the number of threads, the amount of memory allocated per thread, and the test duration to simulate different load scenarios. A duration of `0` allows for a continuous stress test. **Data Export:** All performance data collected during the test can be exported to a CSV file, enabling in-depth analysis and custom reporting. |
+| **⚙️ Control**    | **Configurable Test Parameters:** Adjust the number of threads, the amount of memory allocated per thread, and the test duration to simulate different load scenarios. A duration of `0` allows for a continuous stress test. |
 
 ---
 
@@ -126,7 +126,7 @@ sudo apt install build-essential libgtk-3-dev libhpdf-dev git make
 2.  **Initiate Test:** Click `Start`.
 3.  **Monitor Performance:** Observe the real-time data visualizations.
 4.  **Conclude Test:** Click `Stop` to terminate the test manually.
-5.  **Export Results:** After the test completes, click `Export CSV` to save the performance data.
+5.  **Clear Log:** Click `Clear Log` to clear the event log.
 
 ---
 

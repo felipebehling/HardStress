@@ -65,7 +65,7 @@ O HardStress é projetado em torno de três princípios fundamentais: Precisão,
 | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **🎯 Precisão** | **Arquitetura Multi-Threaded:** Utiliza eficientemente todos os núcleos de CPU disponíveis, garantindo uma carga de trabalho máxima e sustentada. **Afinidade de CPU:** Permite fixar threads de trabalho a núcleos de CPU específicos. Isso elimina a sobrecarga do escalonador do sistema operacional e garante que a carga em cada núcleo seja consistente e repetível, o que é crucial para testes de benchmark precisos. |
 | **📊 Clareza**   | **Visualização em Tempo Real:** A interface gráfica, construída com GTK3, oferece uma visão clara e imediata das principais métricas do sistema. **Gráficos Detalhados:** Monitore o uso de cada núcleo da CPU individualmente, visualize o histórico de desempenho (iterações por segundo) para cada thread e acompanhe as principais métricas térmicas para evitar o superaquecimento. |
-| **⚙️ Controle**    | **Parâmetros de Teste Configuráveis:** Ajuste o número de threads, a quantidade de memória alocada por thread e a duração do teste para simular diferentes cenários de carga. Uma duração de `0` permite um teste de estresse contínuo. **Exportação de Dados:** Todos os dados de desempenho coletados durante o teste podem ser exportados para um arquivo CSV, permitindo uma análise aprofundada e a criação de relatórios personalizados. |
+| **⚙️ Controle**    | **Parâmetros de Teste Configuráveis:** Ajuste o número de threads, a quantidade de memória alocada por thread e a duração do teste para simular diferentes cenários de carga. Uma duração de `0` permite um teste de estresse contínuo. |
 
 ---
 
@@ -128,7 +128,7 @@ sudo apt install build-essential libgtk-3-dev libhpdf-dev git make
 2.  **Inicie o Teste:** Clique em `Iniciar`.
 3.  **Monitore o Desempenho:** Observe as visualizações de dados em tempo real.
 4.  **Conclua o Teste:** Clique em `Parar` para encerrar o teste manualmente.
-5.  **Exporte os Resultados:** Após a conclusão do teste, clique em `Exportar CSV` para salvar os dados de desempenho.
+5.  **Limpar Log:** Clique em `Limpar Log` para limpar o log de eventos.
 
 ---
 
