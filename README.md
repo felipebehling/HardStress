@@ -23,9 +23,7 @@
   <a href="#-começando">Começando</a> •
   <a href="#-uso">Uso</a> •
   <a href="#-desenvolvimento">Desenvolvimento</a> •
-  <a href="#-contribuindo">Contribuindo</a> •
   <a href="#-licença">Licença</a> •
-  <a href="#-agradecimentos">Agradecimentos</a>
 </p>
 </div>
 
