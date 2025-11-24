@@ -143,27 +143,6 @@ cd Hardstress
 
 **Compile a aplicação:**
 -   Para uma compilação de depuração padrão: `make`
--   Para uma compilação de lançamento de alto desempenho: `make release`
-
-**Execute a suíte de testes:**
--   `make test`
-
-Este comando compila e executa uma suíte de testes unitários para validar as funções principais de utilidade e métricas.
-
----
-
-## 🤝 Contribuindo
-
-As contribuições são o que tornam a comunidade de código aberto um lugar incrível para aprender, inspirar e criar. Qualquer contribuição que você fizer será **muito apreciada**.
-
-Se você tiver uma sugestão que possa melhorar este projeto, por favor, faça um fork do repositório e crie um pull request. Você também pode simplesmente abrir uma issue com a tag "enhancement".
-Não se esqueça de dar uma estrela ao projeto! Obrigado novamente!
-
-1. Faça um Fork do Projeto
-2. Crie sua Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Faça Commit de suas Mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Faça Push para a Branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
 
 ---
 
@@ -171,17 +150,6 @@ Não se esqueça de dar uma estrela ao projeto! Obrigado novamente!
 
 Este projeto está licenciado sob a Licença MIT. Consulte o arquivo [LICENSE](LICENSE) para obter detalhes.
 
----
-
-## 🙏 Agradecimentos
-
-Um agradecimento especial aos seguintes projetos e comunidades por sua inspiração e pelas ferramentas que tornaram este projeto possível:
-
--   [Shields.io](https://shields.io/) pelos emblemas dinâmicos.
--   [Capsule Render](https://github.com/kyechan99/capsule-render) pelo incrível banner de cabeçalho.
--   A comunidade de código aberto por fornecer recursos e suporte incríveis.
-
----
 
 ---
 
@@ -196,5 +164,5 @@ Este projeto foi construído com as seguintes tecnologias e padrões:
 -   **Compiladores:** GCC (Linux) e MinGW-w64 (Windows)
 
 <p align="center">
-  <em>Um toolkit profissional para análise de estabilidade e desempenho do sistema.</em>
+  <em>Um toolkit para análise de estabilidade e desempenho do sistema.</em>
 </p>
